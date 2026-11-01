@@ -1,0 +1,6 @@
+{
+  "summary":  "Comprehensive architectural blueprint and implementation plan for Korsa, a Moroccan intercity Grand Taxi ride-hailing and fare negotiation platform inspired by inDrive and markoub.ma, featuring door-to-door intercity travel, passenger fare proposals and driver counter-bids, direct telephone/WhatsApp matching buttons with mutual 4-digit pickup codes, and a multi-method Moroccan payment system (Dirham digital wallet, CMI card gateway, and cash with digital confirmation).",
+  "updatedAt":  "2026-11-01T16:45:22.156455075Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

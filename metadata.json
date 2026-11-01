@@ -1,0 +1,6 @@
+{
+  "name": "Korsa - Moroccan Grand Taxi Bidding & Intercity Travel",
+  "description": "Book and negotiate Moroccan Grand Taxi inter-city rides directly from your doorstep without the taxi station hassle. Features real-time inDrive-style bidding, direct driver phone call buttons, and a complete Moroccan Dirham payment system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

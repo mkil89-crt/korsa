@@ -1,0 +1,110 @@
+import { DriverBid } from '../types';
+
+export const MOCK_CERTIFIED_DRIVERS: DriverBid[] = [
+  {
+    id: 'bid-1',
+    driverId: 'drv-hassan',
+    driverName: 'Si Hassan El Amrani',
+    driverPhone: '+212 6 61 48 92 10',
+    driverRating: 4.94,
+    tripsCount: 1420,
+    carModel: 'Dacia Lodgy 7-Places (Climatisée)',
+    carYear: 2023,
+    carColor: 'White & Sand',
+    taxiCity: 'Casablanca',
+    taxiLicenseNumber: 'Lagrima #3108',
+    plateNumber: '61492 - A - 6',
+    photoUrl: '/src/assets/images/korsa_driver_moul_1793551615472.jpg',
+    offeredPriceMAD: 45,
+    etaMinutes: 8,
+    message: 'Salam! I am 8 minutes away near Twin Center. Clean AC car and spacious boot for luggage.',
+    timestamp: 'Just now'
+  },
+  {
+    id: 'bid-2',
+    driverId: 'drv-rachid',
+    driverName: 'Rachid Benjelloun',
+    driverPhone: '+212 6 72 33 19 84',
+    driverRating: 4.88,
+    tripsCount: 980,
+    carModel: 'Mercedes-Benz Vito Tourer (VIP Taxi)',
+    carYear: 2022,
+    carColor: 'Off-White',
+    taxiCity: 'Casablanca',
+    taxiLicenseNumber: 'Lagrima #1842',
+    plateNumber: '40912 - B - 1',
+    photoUrl: '/src/assets/images/korsa_driver_moul_1793551615472.jpg',
+    offeredPriceMAD: 50,
+    etaMinutes: 12,
+    message: 'Direct highway autoroute, quiet and comfortable leather seats. Can leave right away.',
+    timestamp: '1 min ago'
+  },
+  {
+    id: 'bid-3',
+    driverId: 'drv-tariq',
+    driverName: 'Tariq Meziane',
+    driverPhone: '+212 6 63 90 41 55',
+    driverRating: 4.91,
+    tripsCount: 1150,
+    carModel: 'Fiat Tipo Grand Taxi',
+    carYear: 2024,
+    carColor: 'White',
+    taxiCity: 'Casablanca',
+    taxiLicenseNumber: 'Lagrima #5021',
+    plateNumber: '88301 - A - 6',
+    photoUrl: '/src/assets/images/korsa_driver_moul_1793551615472.jpg',
+    offeredPriceMAD: 40,
+    etaMinutes: 5,
+    message: 'Already on Boulevard Zerktouni ready to pick you up at your doorstep.',
+    timestamp: '2 mins ago'
+  },
+  {
+    id: 'bid-4',
+    driverId: 'drv-youssef',
+    driverName: 'Youssef El Fassi',
+    driverPhone: '+212 6 68 11 25 79',
+    driverRating: 4.96,
+    tripsCount: 2100,
+    carModel: 'Peugeot Rifter Grand Taxi (Grand Coffre)',
+    carYear: 2023,
+    carColor: 'White & Blue',
+    taxiCity: 'Rabat',
+    taxiLicenseNumber: 'Lagrima #0944',
+    plateNumber: '19203 - A - 1',
+    photoUrl: '/src/assets/images/korsa_driver_moul_1793551615472.jpg',
+    offeredPriceMAD: 48,
+    etaMinutes: 15,
+    message: 'Expert intercity driver, smooth driving and complimentary cold water bottles.',
+    timestamp: '3 mins ago'
+  }
+];
+
+export const INITIAL_WALLET_TRANSACTIONS = [
+  {
+    id: 'tx-101',
+    type: 'deposit' as const,
+    amountMAD: 250,
+    date: 'Today, 08:15',
+    description: 'Wallet Top-up via Attijariwafa Bank Card',
+    referenceCode: 'KRS-DEP-84920',
+    status: 'completed' as const
+  },
+  {
+    id: 'tx-102',
+    type: 'trip_fare' as const,
+    amountMAD: -50,
+    date: 'Yesterday, 19:30',
+    description: 'Korsa Ride: Casablanca Maarif → Rabat Agdal',
+    referenceCode: 'KRS-RIDE-3184',
+    status: 'completed' as const
+  },
+  {
+    id: 'tx-103',
+    type: 'refund' as const,
+    amountMAD: 45,
+    date: '28 Oct 2026',
+    description: 'Cancelled Bid Fare Reversal',
+    referenceCode: 'KRS-REF-1093',
+    status: 'completed' as const
+  }
+];
