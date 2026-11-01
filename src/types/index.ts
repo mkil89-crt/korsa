@@ -91,3 +91,22 @@ export interface BankCard {
   cvv: string;
   bankName: 'Attijariwafa Bank' | 'CIH Bank' | 'Banque Populaire' | 'Bank of Africa';
 }
+
+export interface UserSession {
+  role: 'passenger' | 'driver' | 'founder';
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  avatar?: string;
+  city?: string;
+  isVerified?: boolean;
+  driverDetails?: {
+    carModel: string;
+    carYear: number;
+    lagrimaNumber: string;
+    plateNumber: string;
+    taxiCity: string;
+    status: 'approved' | 'pending' | 'rejected';
+  };
+}

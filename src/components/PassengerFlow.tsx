@@ -17,6 +17,7 @@ import { MoroccanCity, RideRequest, DriverBid, RideType } from '../types';
 import { MOROCCAN_CITIES, getRouteBenchmark } from '../data/moroccanCities';
 import { MOCK_CERTIFIED_DRIVERS } from '../data/mockDrivers';
 import { DirectContactCard } from './DirectContactCard';
+import { DriverAvatar } from './DriverAvatar';
 
 interface PassengerFlowProps {
   currentRide: RideRequest | null;
@@ -492,9 +493,10 @@ export const PassengerFlow: React.FC<PassengerFlowProps> = ({
             <div className="flex items-center gap-2 self-end sm:self-auto">
               <button
                 onClick={onCancelRide}
-                className="px-3.5 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold rounded-xl text-rose-600 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                title="Revenir au formulaire de départ"
               >
-                Cancel Korsa
+                <span>↩️ Revenir à la première étape</span>
               </button>
             </div>
           </div>
@@ -554,14 +556,10 @@ export const PassengerFlow: React.FC<PassengerFlowProps> = ({
                       {/* Driver info header */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={bid.photoUrl}
-                            alt={bid.driverName}
-                            referrerPolicy="no-referrer"
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-700"
-                            onError={(e) => {
-                              e.currentTarget.src = '/src/assets/images/korsa_driver_moul_1793551615472.jpg';
-                            }}
+                          <DriverAvatar
+                            photoUrl={bid.photoUrl}
+                            name={bid.driverName}
+                            size="md"
                           />
                           <div>
                             <div className="flex items-center gap-1.5">

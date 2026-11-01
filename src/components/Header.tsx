@@ -1,5 +1,6 @@
 import React from 'react';
-import { Car, Wallet, ArrowRightLeft, ShieldCheck, PhoneCall } from 'lucide-react';
+import { Car, Wallet, ArrowRightLeft, ShieldCheck, PhoneCall, User, LogIn, Crown } from 'lucide-react';
+import { UserSession } from '../types';
 
 interface HeaderProps {
   currentRole: 'passenger' | 'driver';
@@ -9,6 +10,9 @@ interface HeaderProps {
   onNavigateSection: (sectionId: string) => void;
   activeTripCount: number;
   onOpenActiveTrip?: () => void;
+  onOpenFounderDashboard?: () => void;
+  currentUser: UserSession | null;
+  onOpenAuthModal: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,7 +22,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenWallet,
   onNavigateSection,
   activeTripCount,
-  onOpenActiveTrip
+  onOpenActiveTrip,
+  onOpenFounderDashboard,
+  currentUser,
+  onOpenAuthModal
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
@@ -109,6 +116,31 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="whitespace-nowrap">
                 {currentRole === 'passenger' ? 'Switch to Chauffeur (Moul Taxi)' : 'Switch to Passenger Mode'}
               </span>
+            </button>
+
+
+
+            {/* User Login / Profile Button */}
+            <button
+              onClick={onOpenAuthModal}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-colors cursor-pointer border ${
+                currentUser
+                  ? 'bg-slate-900 text-white dark:bg-slate-800 border-slate-700'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm'
+              }`}
+              title={currentUser ? `Connecté: ${currentUser.name}` : 'Se connecter / S’inscrire'}
+            >
+              {currentUser ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span className="max-w-[100px] truncate">{currentUser.name.split(' ')[0]}</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Connexion</span>
+                </>
+              )}
             </button>
           </div>
 

@@ -13,7 +13,10 @@ import {
   Award,
   Navigation,
   ArrowRight,
-  Plus
+  Plus,
+  Landmark,
+  X,
+  Building
 } from 'lucide-react';
 import { RideRequest, DriverBid } from '../types';
 import { DirectContactCard } from './DirectContactCard';
@@ -41,6 +44,12 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
   const [etaSelected, setEtaSelected] = useState<number>(8);
   const [tripStep, setTripStep] = useState<'approaching' | 'at_pickup' | 'on_autoroute' | 'delivered'>('approaching');
 
+  // Driver RIB state
+  const [showDriverRibModal, setShowDriverRibModal] = useState(false);
+  const [driverBank, setDriverBank] = useState('CIH Bank (Code 30)');
+  const [driverRib, setDriverRib] = useState('230780000987654321098765');
+  const [ribSuccess, setRibSuccess] = useState(false);
+
   const handleSendOffer = (ride: RideRequest, price: number) => {
     onDriverAcceptRide(ride.id, price);
   };
@@ -55,7 +64,7 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
           <div className="flex items-center gap-4">
             <div className="relative">
               <img
-                src="/src/assets/images/korsa_driver_moul_1793551615472.jpg"
+                src="/assets/images/korsa_driver_moul_1793551615472.jpg"
                 alt="Si Hassan Chauffeur"
                 className="w-16 h-16 rounded-2xl object-cover border-2 border-amber-500 shadow-md"
               />
@@ -95,15 +104,128 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
               </div>
             </div>
             <button
-              onClick={onDriverWithdraw}
-              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm"
+              onClick={() => setShowDriverRibModal(true)}
+              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
             >
-              Virement CIH / BCP
+              <Landmark className="w-3.5 h-3.5" />
+              <span>Mon RIB & Virement</span>
             </button>
           </div>
 
         </div>
       </div>
+
+      {/* DRIVER RIB MODAL */}
+      {showDriverRibModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+                  <Landmark className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white font-['Outfit',sans-serif]">
+                    RIB Bancaire du Chauffeur · سحب الأرباح
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Pour recevoir vos gains de courses directement sur votre compte bancaire.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDriverRibModal(false)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {ribSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-xs text-emerald-800 dark:text-emerald-300 font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>RIB enregistré avec succès ! Virement de {driverWalletBalance} MAD initié.</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Votre Banque Marocaine
+                </label>
+                <select
+                  value={driverBank}
+                  onChange={(e) => setDriverBank(e.target.value)}
+                  className="w-full mt-1.5 px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                >
+                  <option>CIH Bank (Code 30)</option>
+                  <option>Attijariwafa Bank</option>
+                  <option>Banque Populaire (BCP)</option>
+                  <option>Bank of Africa (BMCE)</option>
+                  <option>Crédit Agricole du Maroc</option>
+                  <option>Société Générale Maroc</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Numéro de RIB (24 Chiffres)
+                  </label>
+                  <span className="text-xs font-mono font-bold text-amber-600">
+                    {driverRib.length}/24 chiffres
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  maxLength={24}
+                  value={driverRib}
+                  onChange={(e) => setDriverRib(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="24 chiffres sans espaces"
+                  className="w-full mt-1.5 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-sm font-bold tracking-widest text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-slate-500">Montant des gains à virer</span>
+                  <div className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
+                    {driverWalletBalance} <span className="text-xs font-sans text-amber-600">MAD</span>
+                  </div>
+                </div>
+                <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 dark:bg-emerald-950 px-2 py-1 rounded-md">
+                  Virement Gratuit
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDriverRibModal(false)}
+                className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Fermer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRibSuccess(true);
+                  setTimeout(() => {
+                    onDriverWithdraw();
+                    setShowDriverRibModal(false);
+                    setRibSuccess(false);
+                  }, 1200);
+                }}
+                disabled={driverRib.length < 24 || driverWalletBalance <= 0}
+                className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer"
+              >
+                Enregistrer & Virer vers ce RIB
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. ACTIVE RIDE IN PROGRESS (MATCHED WITH PASSENGER) */}
       {activeDriverRide && (

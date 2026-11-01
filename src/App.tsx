@@ -6,7 +6,9 @@ import { DriverConsole } from './components/DriverConsole';
 import { PaymentSystemModal } from './components/PaymentSystemModal';
 import { ActiveTripTracker } from './components/ActiveTripTracker';
 import { DirectContactCard } from './components/DirectContactCard';
-import { RideRequest, DriverBid, WalletTransaction, PaymentMethod } from './types';
+import { FounderDashboard } from './components/FounderDashboard';
+import { AuthModal } from './components/AuthModal';
+import { RideRequest, DriverBid, WalletTransaction, PaymentMethod, UserSession } from './types';
 import { MOCK_CERTIFIED_DRIVERS, INITIAL_WALLET_TRANSACTIONS } from './data/mockDrivers';
 import {
   Car,
@@ -23,6 +25,18 @@ import {
 } from 'lucide-react';
 
 export default function App() {
+  // Connected User Session
+  const [currentUser, setCurrentUser] = useState<UserSession | null>({
+    role: 'founder',
+    id: 'usr-founder-abdelhaq',
+    name: 'Abdelhaq Cherqui',
+    phone: '+212 6 00 00 00 00',
+    email: 'abdelhaqcherqui@gmail.com',
+    isVerified: true
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authInitialTab, setAuthInitialTab] = useState<'passenger' | 'driver' | 'founder'>('passenger');
+
   // Mode: Passenger vs Driver (Chauffeur Moul Taxi)
   const [currentRole, setCurrentRole] = useState<'passenger' | 'driver'>('passenger');
   
@@ -99,6 +113,9 @@ export default function App() {
   // Active Trip Full View Modal / Panel
   const [showActiveTripTracker, setShowActiveTripTracker] = useState<boolean>(false);
 
+  // Founder Dashboard Modal
+  const [isFounderModalOpen, setIsFounderModalOpen] = useState<boolean>(false);
+
   // FAQ Accordion State
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -161,14 +178,13 @@ export default function App() {
     setPendingRides(prev => prev.filter(r => r.id !== updatedRide.id));
   };
 
-  // Passenger cancels active ride
+  // Passenger cancels active ride and returns to step 1
   const handleCancelRide = () => {
-    if (confirm('Are you sure you want to cancel this Korsa ride?')) {
-      if (currentPassengerRide) {
-        setPendingRides(prev => prev.filter(r => r.id !== currentPassengerRide.id));
-      }
-      setCurrentPassengerRide(null);
+    if (currentPassengerRide) {
+      setPendingRides(prev => prev.filter(r => r.id !== currentPassengerRide.id));
     }
+    setCurrentPassengerRide(null);
+    window.scrollTo({ top: 380, behavior: 'smooth' });
   };
 
   // Chauffeur accepts a passenger request on radar
@@ -295,6 +311,9 @@ export default function App() {
         onNavigateSection={handleNavigateSection}
         activeTripCount={currentPassengerRide?.status === 'driver_accepted' || currentPassengerRide?.status === 'in_progress' ? 1 : 0}
         onOpenActiveTrip={() => setShowActiveTripTracker(true)}
+        onOpenFounderDashboard={() => setIsFounderModalOpen(true)}
+        currentUser={currentUser}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
 
       {/* Role Banner Indicator */}
@@ -499,6 +518,33 @@ export default function App() {
         transactions={transactions}
       />
 
+      {/* Founder Super-Admin Portal Modal */}
+      <FounderDashboard
+        isOpen={isFounderModalOpen}
+        onClose={() => setIsFounderModalOpen(false)}
+      />
+
+      {/* Authentication Modal for Passengers, Drivers & Founder */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        initialRoleTab={authInitialTab}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          if (user.role === 'founder') {
+            setIsFounderModalOpen(true);
+          } else if (user.role === 'driver') {
+            setCurrentRole('driver');
+          } else {
+            setCurrentRole('passenger');
+          }
+        }}
+        onLogout={() => {
+          setCurrentUser(null);
+        }}
+      />
+
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-8 px-4 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -510,7 +556,7 @@ export default function App() {
           <div className="text-center sm:text-right">
             <span>Casablanca · Rabat · Marrakech · Tangier · Fes · Agadir</span>
             <div className="text-[11px] text-slate-400 mt-0.5">
-              Built with inDrive & markoub.ma ergonomics for Moroccan transport.
+              Founded & Owned by <strong>Abdelhaq Cherqui</strong>. Built for Moroccan Intercity Transport.
             </div>
           </div>
         </div>

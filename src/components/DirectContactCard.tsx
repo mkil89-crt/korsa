@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Phone, MessageSquare, ShieldCheck, MapPin, CheckCircle2, Car, Copy, Check, Radio } from 'lucide-react';
 import { DriverBid, RideRequest } from '../types';
+import { DriverAvatar } from './DriverAvatar';
 
 interface DirectContactCardProps {
   ride: RideRequest;
@@ -92,17 +93,12 @@ export const DirectContactCard: React.FC<DirectContactCardProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
         <div className="flex items-center gap-3.5">
           <div className="relative">
-            <img
-              src={viewerRole === 'passenger' ? (driver?.photoUrl || '/src/assets/images/korsa_driver_moul_1793551615472.jpg') : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=faces&auto=format'}
-              alt={targetName}
-              referrerPolicy="no-referrer"
-              className="w-14 h-14 rounded-full object-cover border-2 border-white dark:border-slate-700 shadow-sm"
-              onError={(e) => {
-                // Fallback to local image
-                e.currentTarget.src = '/src/assets/images/korsa_driver_moul_1793551615472.jpg';
-              }}
+            <DriverAvatar
+              photoUrl={viewerRole === 'passenger' ? (driver?.photoUrl || '/assets/images/korsa_driver_moul_1793551615472.jpg') : ''}
+              name={targetName}
+              size="lg"
             />
-            <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full"></span>
+            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full"></span>
           </div>
 
           <div>

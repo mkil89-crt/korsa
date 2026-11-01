@@ -13,6 +13,7 @@ import {
   Share2
 } from 'lucide-react';
 import { RideRequest, DriverBid } from '../types';
+import { DriverAvatar } from './DriverAvatar';
 
 interface ActiveTripTrackerProps {
   ride: RideRequest;
@@ -121,13 +122,10 @@ export const ActiveTripTracker: React.FC<ActiveTripTrackerProps> = ({
         {/* Driver identity */}
         <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img
-              src={driver?.photoUrl || '/src/assets/images/korsa_driver_moul_1793551615472.jpg'}
-              alt={driver?.driverName}
-              className="w-12 h-12 rounded-xl object-cover border border-amber-500/40"
-              onError={(e) => {
-                e.currentTarget.src = '/src/assets/images/korsa_driver_moul_1793551615472.jpg';
-              }}
+            <DriverAvatar
+              photoUrl={driver?.photoUrl || '/assets/images/korsa_driver_moul_1793551615472.jpg'}
+              name={driver?.driverName || 'Si Hassan El Amrani'}
+              size="md"
             />
             <div>
               <div className="text-sm font-bold text-slate-900 dark:text-white">

@@ -83,7 +83,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* Right Hero Image Showcase */}
           <div className="lg:col-span-5 relative min-h-[300px] lg:min-h-full">
             <img
-              src="/src/assets/images/korsa_hero_taxi_1793551614833.jpg"
+              src="/assets/images/korsa_hero_taxi_1793551614833.jpg"
               alt="Moroccan Grand Taxi on Coastal Highway"
               className="absolute inset-0 w-full h-full object-cover"
               referrerPolicy="no-referrer"
@@ -241,7 +241,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       {/* 4. Visual Highway Section with Authentic Photo */}
       <div className="relative rounded-3xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-800">
         <img
-          src="/src/assets/images/korsa_intercity_route_1793551615608.jpg"
+          src="/assets/images/korsa_intercity_route_1793551615608.jpg"
           alt="Moroccan Autoroute Toll and Taxi"
           className="w-full h-72 md:h-80 object-cover"
           referrerPolicy="no-referrer"
