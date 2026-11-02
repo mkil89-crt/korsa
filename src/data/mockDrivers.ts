@@ -79,32 +79,4 @@ export const MOCK_CERTIFIED_DRIVERS: DriverBid[] = [
   }
 ];
 
-export const INITIAL_WALLET_TRANSACTIONS = [
-  {
-    id: 'tx-101',
-    type: 'deposit' as const,
-    amountMAD: 250,
-    date: 'Today, 08:15',
-    description: 'Wallet Top-up via Attijariwafa Bank Card',
-    referenceCode: 'KRS-DEP-84920',
-    status: 'completed' as const
-  },
-  {
-    id: 'tx-102',
-    type: 'trip_fare' as const,
-    amountMAD: -50,
-    date: 'Yesterday, 19:30',
-    description: 'Korsa Ride: Casablanca Maarif → Rabat Agdal',
-    referenceCode: 'KRS-RIDE-3184',
-    status: 'completed' as const
-  },
-  {
-    id: 'tx-103',
-    type: 'refund' as const,
-    amountMAD: 45,
-    date: '28 Oct 2026',
-    description: 'Cancelled Bid Fare Reversal',
-    referenceCode: 'KRS-REF-1093',
-    status: 'completed' as const
-  }
-];
+export const INITIAL_WALLET_TRANSACTIONS: any[] = [];

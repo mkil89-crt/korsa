@@ -17,23 +17,37 @@ import {
   Check,
   Copy,
   Save,
-  ArrowRight
+  ArrowRight,
+  Key,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { MOROCCAN_CITIES } from '../data/moroccanCities';
 
 interface FounderDashboardProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'financials' | 'drivers' | 'ownership' | 'rib_payouts';
+  initialTab?: 'financials' | 'drivers' | 'ownership' | 'rib_payouts' | 'security';
+  currentPassword?: string;
+  onUpdatePassword?: (newPassword: string) => void;
 }
 
 export const FounderDashboard: React.FC<FounderDashboardProps> = ({
   isOpen,
   onClose,
-  initialTab = 'financials'
+  initialTab = 'financials',
+  currentPassword = '2026',
+  onUpdatePassword
 }) => {
   const [commissionRate, setCommissionRate] = useState<number>(8); // 8% default
-  const [activeTab, setActiveTab] = useState<'financials' | 'drivers' | 'ownership' | 'rib_payouts'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'financials' | 'drivers' | 'ownership' | 'rib_payouts' | 'security'>(initialTab);
+  
+  // Password modification state
+  const [oldPasswordInput, setOldPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [passwordStatusMsg, setPasswordStatusMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   
   // Pending driver approvals state
   const [pendingDrivers, setPendingDrivers] = useState([
@@ -107,6 +121,30 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
     }, 1200);
   };
 
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (oldPasswordInput !== currentPassword) {
+      setPasswordStatusMsg({ text: 'L’ancien mot de passe est incorrect.', type: 'error' });
+      return;
+    }
+    if (newPasswordInput.length < 4) {
+      setPasswordStatusMsg({ text: 'Le nouveau mot de passe doit comporter au moins 4 caractères.', type: 'error' });
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordStatusMsg({ text: 'Les deux nouveaux mots de passe ne correspondent pas.', type: 'error' });
+      return;
+    }
+
+    if (onUpdatePassword) {
+      onUpdatePassword(newPasswordInput);
+    }
+    setPasswordStatusMsg({ text: 'Votre mot de passe Fondateur a été mis à jour avec succès !', type: 'success' });
+    setOldPasswordInput('');
+    setNewPasswordInput('');
+    setConfirmPasswordInput('');
+  };
+
   const handleApproveDriver = (id: string) => {
     setPendingDrivers(prev => prev.map(d => d.id === id ? { ...d, status: 'approved' } : d));
   };
@@ -155,7 +193,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
           </button>
         </div>
 
-        {/* Tab Strip with RIB Tab Highlighted */}
+        {/* Tab Strip with Security Tab Added */}
         <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-6 pt-3 gap-6 text-xs font-bold overflow-x-auto">
           <button
             onClick={() => setActiveTab('financials')}
@@ -178,7 +216,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
             }`}
           >
             <Landmark className="w-3.5 h-3.5" />
-            <span>Mon RIB Bancaire (Retrait des Gains)</span>
+            <span>Mon RIB Bancaire</span>
           </button>
 
           <button
@@ -192,6 +230,22 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
             Driver Approvals ({pendingDrivers.filter(d => d.status === 'pending').length} Pending)
           </button>
 
+          {/* SECURITY & PASSWORD TAB */}
+          <button
+            onClick={() => {
+              setActiveTab('security');
+              setPasswordStatusMsg(null);
+            }}
+            className={`pb-3 border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'security'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span>Mot de passe & Sécurité</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('ownership')}
             className={`pb-3 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
@@ -200,7 +254,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            Legal Ownership & OMPIC
+            Ownership & OMPIC
           </button>
         </div>
 
@@ -646,6 +700,106 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB 4: MOT DE PASSE & SÉCURITÉ */}
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 text-white border border-slate-800 space-y-2">
+                <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                  <Key className="w-5 h-5" />
+                  <span>Sécurité & Protection de l'Espace Fondateur</span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  Ce mot de passe protège votre console propriétaire (taux de commissions, RIB bancaire et validation des chauffeurs). Vous pouvez le modifier à tout moment ci-dessous.
+                </p>
+              </div>
+
+              {passwordStatusMsg && (
+                <div className={`p-4 rounded-xl text-xs font-semibold flex items-center gap-2.5 ${
+                  passwordStatusMsg.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 text-rose-800 dark:text-rose-300'
+                }`}>
+                  {passwordStatusMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                  )}
+                  <span>{passwordStatusMsg.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangePassword} className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-600" />
+                  Changer le Mot de Passe Fondateur
+                </h4>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Mot de passe actuel
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      value={oldPasswordInput}
+                      onChange={(e) => setOldPasswordInput(e.target.value)}
+                      placeholder="Mot de passe actuel (par défaut : 2026)"
+                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass(!showPass)}
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Nouveau mot de passe
+                    </label>
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      value={newPasswordInput}
+                      onChange={(e) => setNewPasswordInput(e.target.value)}
+                      placeholder="Min. 4 caractères"
+                      className="w-full mt-1 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Confirmer le nouveau mot de passe
+                    </label>
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      value={confirmPasswordInput}
+                      onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                      placeholder="Retapez le nouveau mot de passe"
+                      className="w-full mt-1 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    className="w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Mettre à jour le mot de passe Fondateur</span>
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 

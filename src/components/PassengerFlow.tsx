@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   Send
 } from 'lucide-react';
-import { MoroccanCity, RideRequest, DriverBid, RideType } from '../types';
+import { MoroccanCity, RideRequest, DriverBid, RideType, UserSession } from '../types';
 import { MOROCCAN_CITIES, getRouteBenchmark } from '../data/moroccanCities';
 import { MOCK_CERTIFIED_DRIVERS } from '../data/mockDrivers';
 import { DirectContactCard } from './DirectContactCard';
@@ -21,33 +21,45 @@ import { DriverAvatar } from './DriverAvatar';
 
 interface PassengerFlowProps {
   currentRide: RideRequest | null;
+  currentUser?: UserSession | null;
   onPublishRide: (ride: RideRequest) => void;
   onAcceptDriverBid: (driver: DriverBid) => void;
   onCancelRide: () => void;
   onOpenPaymentModal: () => void;
   onVerifyMutualPin: (pin: string) => boolean;
+  onSimulateTestBid?: () => void;
 }
 
 export const PassengerFlow: React.FC<PassengerFlowProps> = ({
   currentRide,
+  currentUser,
   onPublishRide,
   onAcceptDriverBid,
   onCancelRide,
   onOpenPaymentModal,
-  onVerifyMutualPin
+  onVerifyMutualPin,
+  onSimulateTestBid
 }) => {
-  // Booking Form State
+  // Booking Form State - clean initial values ready for real online passengers
   const [fromCityId, setFromCityId] = useState<string>('casablanca');
   const [toCityId, setToCityId] = useState<string>('rabat');
-  const [pickupLandmark, setPickupLandmark] = useState<string>('Maarif - Boulevard Zerktouni (Near Twin Center)');
-  const [dropoffLandmark, setDropoffLandmark] = useState<string>('Agdal - Avenue Fal Ould Oumeir');
+  const [pickupLandmark, setPickupLandmark] = useState<string>('');
+  const [dropoffLandmark, setDropoffLandmark] = useState<string>('');
   const [rideType, setRideType] = useState<RideType>('blasa');
   const [seatsRequested, setSeatsRequested] = useState<number>(1);
-  const [passengerName, setPassengerName] = useState<string>('Amine Tazi');
-  const [passengerPhone, setPassengerPhone] = useState<string>('+212 6 62 88 19 40');
+  const [passengerName, setPassengerName] = useState<string>(currentUser?.name || '');
+  const [passengerPhone, setPassengerPhone] = useState<string>(currentUser?.phone || '');
   const [proposedPriceMAD, setProposedPriceMAD] = useState<number>(45);
   const [customCounterInput, setCustomCounterInput] = useState<{ [bidId: string]: number }>({});
   const [showCounterBox, setShowCounterBox] = useState<{ [bidId: string]: boolean }>({});
+
+  // Sync passenger credentials if logged in
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.name && !passengerName) setPassengerName(currentUser.name);
+      if (currentUser.phone && !passengerPhone) setPassengerPhone(currentUser.phone);
+    }
+  }, [currentUser]);
 
   const routeBenchmark = getRouteBenchmark(fromCityId, toCityId);
 
@@ -545,106 +557,136 @@ export const PassengerFlow: React.FC<PassengerFlowProps> = ({
                 </div>
               </div>
 
-              {/* Bids list */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {currentRide.activeBids.map((bid) => (
-                  <div
-                    key={bid.id}
-                    className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md hover:shadow-lg transition-all space-y-4 flex flex-col justify-between"
-                  >
-                    <div>
-                      {/* Driver info header */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <DriverAvatar
-                            photoUrl={bid.photoUrl}
-                            name={bid.driverName}
-                            size="md"
-                          />
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                                {bid.driverName}
-                              </h4>
-                              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-semibold bg-amber-100 dark:bg-amber-950 px-1.5 py-0.2 rounded">
-                                {bid.taxiLicenseNumber}
-                              </span>
-                            </div>
-                            <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                              <span className="text-amber-500">★ {bid.driverRating}</span>
-                              <span>·</span>
-                              <span>{bid.tripsCount} trips</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Price offered by driver */}
-                        <div className="text-right">
-                          <div className="text-xl font-extrabold font-mono text-slate-900 dark:text-white tabular-nums">
-                            {bid.offeredPriceMAD} <span className="text-xs font-sans text-amber-600">MAD</span>
-                          </div>
-                          <span className="text-[10px] text-slate-400">
-                            {bid.offeredPriceMAD === currentRide.proposedPriceMAD ? 'Matches your offer' : 'Counter-bid'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Vehicle & ETA info */}
-                      <div className="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs text-slate-700 dark:text-slate-300 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                            <Car className="w-3.5 h-3.5 text-amber-600" />
-                            {bid.carModel}
-                          </span>
-                          <span className="font-mono text-emerald-600 font-bold">
-                            ETA: {bid.etaMinutes} min
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 italic">
-                          "{bid.message}"
-                        </p>
-                      </div>
+              {/* If no bids yet: live radar searching state */}
+              {currentRide.activeBids.length === 0 ? (
+                <div className="p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm">
+                  <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto relative">
+                    <div className="absolute inset-0 rounded-full border-2 border-amber-500/40 animate-ping"></div>
+                    <Car className="w-8 h-8 text-amber-500" />
+                  </div>
+                  <div className="max-w-md mx-auto space-y-1">
+                    <h4 className="text-base font-bold text-slate-900 dark:text-white font-['Outfit',sans-serif]">
+                      Radar Actif · Recherche de Chauffeurs Moul Taxi en cours
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Votre demande ({currentRide.proposedPriceMAD} MAD pour {currentRide.fromCity} ➔ {currentRide.toCity}) est diffusée en direct aux chauffeurs de Grand Taxi connectés.
+                    </p>
+                  </div>
+                  {onSimulateTestBid && (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={onSimulateTestBid}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl transition-all cursor-pointer inline-flex items-center gap-2 border border-slate-200 dark:border-slate-700"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Simuler une offre Chauffeur (Mode Démo)</span>
+                      </button>
                     </div>
+                  )}
+                </div>
+              ) : (
+                /* Bids list */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {currentRide.activeBids.map((bid) => (
+                    <div
+                      key={bid.id}
+                      className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md hover:shadow-lg transition-all space-y-4 flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Driver info header */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <DriverAvatar
+                              photoUrl={bid.photoUrl}
+                              name={bid.driverName}
+                              size="md"
+                            />
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                                  {bid.driverName}
+                                </h4>
+                                <span className="text-[10px] text-amber-700 dark:text-amber-300 font-semibold bg-amber-100 dark:bg-amber-950 px-1.5 py-0.2 rounded">
+                                  {bid.taxiLicenseNumber}
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                <span className="text-amber-500">★ {bid.driverRating}</span>
+                                <span>·</span>
+                                <span>{bid.tripsCount} trips</span>
+                              </div>
+                            </div>
+                          </div>
 
-                    {/* Action buttons */}
-                    <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => onAcceptDriverBid(bid)}
-                          className="py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm text-center"
-                        >
-                          Accept ({bid.offeredPriceMAD} MAD)
-                        </button>
-                        <button
-                          onClick={() => setShowCounterBox(prev => ({ ...prev, [bid.id]: !prev[bid.id] }))}
-                          className="py-2.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl transition-colors cursor-pointer text-center"
-                        >
-                          Counter-Offer
-                        </button>
+                          {/* Price offered by driver */}
+                          <div className="text-right">
+                            <div className="text-xl font-extrabold font-mono text-slate-900 dark:text-white tabular-nums">
+                              {bid.offeredPriceMAD} <span className="text-xs font-sans text-amber-600">MAD</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400">
+                              {bid.offeredPriceMAD === currentRide.proposedPriceMAD ? 'Matches your offer' : 'Counter-bid'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Vehicle & ETA info */}
+                        <div className="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                              <Car className="w-3.5 h-3.5 text-amber-600" />
+                              {bid.carModel}
+                            </span>
+                            <span className="font-mono text-emerald-600 font-bold">
+                              ETA: {bid.etaMinutes} min
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 italic">
+                            "{bid.message}"
+                          </p>
+                        </div>
                       </div>
 
-                      {/* Counter offer input toggle */}
-                      {showCounterBox[bid.id] && (
-                        <div className="flex gap-2 pt-2 animate-in fade-in">
-                          <input
-                            type="number"
-                            value={customCounterInput[bid.id] || currentRide.proposedPriceMAD}
-                            onChange={(e) => setCustomCounterInput(prev => ({ ...prev, [bid.id]: Number(e.target.value) }))}
-                            className="w-24 px-3 py-1.5 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-800 border rounded-lg"
-                          />
+                      {/* Action buttons */}
+                      <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <div className="grid grid-cols-2 gap-2">
                           <button
-                            onClick={() => handlePassengerCounterOffer(bid)}
-                            className="flex-1 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            onClick={() => onAcceptDriverBid(bid)}
+                            className="py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm text-center"
                           >
-                            Send MAD Offer
+                            Accept ({bid.offeredPriceMAD} MAD)
+                          </button>
+                          <button
+                            onClick={() => setShowCounterBox(prev => ({ ...prev, [bid.id]: !prev[bid.id] }))}
+                            className="py-2.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl transition-colors cursor-pointer text-center"
+                          >
+                            Counter-Offer
                           </button>
                         </div>
-                      )}
-                    </div>
 
-                  </div>
-                ))}
-              </div>
+                        {/* Counter offer input toggle */}
+                        {showCounterBox[bid.id] && (
+                          <div className="flex gap-2 pt-2 animate-in fade-in">
+                            <input
+                              type="number"
+                              value={customCounterInput[bid.id] || currentRide.proposedPriceMAD}
+                              onChange={(e) => setCustomCounterInput(prev => ({ ...prev, [bid.id]: Number(e.target.value) }))}
+                              className="w-24 px-3 py-1.5 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-800 border rounded-lg"
+                            />
+                            <button
+                              onClick={() => handlePassengerCounterOffer(bid)}
+                              className="flex-1 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Send MAD Offer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              )}
 
             </div>
           )}

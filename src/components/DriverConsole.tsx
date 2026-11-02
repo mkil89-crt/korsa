@@ -18,31 +18,45 @@ import {
   X,
   Building
 } from 'lucide-react';
-import { RideRequest, DriverBid } from '../types';
+import { RideRequest, DriverBid, UserSession } from '../types';
 import { DirectContactCard } from './DirectContactCard';
 
 interface DriverConsoleProps {
   pendingRides: RideRequest[];
+  currentUser?: UserSession | null;
   onDriverAcceptRide: (rideId: string, customPrice?: number) => void;
   activeDriverRide: RideRequest | null;
   onUpdateRideStatus: (newStatus: RideRequest['status']) => void;
   driverWalletBalance: number;
   onDriverWithdraw: () => void;
   onVerifyMutualPin: (pin: string) => boolean;
+  onOpenAuthModal?: () => void;
 }
 
 export const DriverConsole: React.FC<DriverConsoleProps> = ({
   pendingRides,
+  currentUser,
   onDriverAcceptRide,
   activeDriverRide,
   onUpdateRideStatus,
   driverWalletBalance,
   onDriverWithdraw,
-  onVerifyMutualPin
+  onVerifyMutualPin,
+  onOpenAuthModal
 }) => {
   const [selectedBidPrice, setSelectedBidPrice] = useState<{ [rideId: string]: number }>({});
   const [etaSelected, setEtaSelected] = useState<number>(8);
   const [tripStep, setTripStep] = useState<'approaching' | 'at_pickup' | 'on_autoroute' | 'delivered'>('approaching');
+  const [driverActionToast, setDriverActionToast] = useState<string | null>(null);
+
+  const isDriverLoggedIn = currentUser?.role === 'driver';
+  const driverDisplayName = isDriverLoggedIn ? currentUser.name : 'Si Hassan El Amrani';
+  const driverVehicleName = isDriverLoggedIn && currentUser.driverDetails?.carModel
+    ? currentUser.driverDetails.carModel
+    : 'Dacia Lodgy 7-Places (Climatisée)';
+  const driverLicenceLabel = isDriverLoggedIn && currentUser.driverDetails?.lagrimaNumber
+    ? `${currentUser.driverDetails.lagrimaNumber} ${currentUser.city || ''}`
+    : 'Lagrima #3108 Casablanca';
 
   // Driver RIB state
   const [showDriverRibModal, setShowDriverRibModal] = useState(false);
@@ -50,8 +64,28 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
   const [driverRib, setDriverRib] = useState('230780000987654321098765');
   const [ribSuccess, setRibSuccess] = useState(false);
 
+  // Driver Post Trip Offer State
+  const [showPostTripModal, setShowPostTripModal] = useState(false);
+  const [postFromCity, setPostFromCity] = useState('Casablanca');
+  const [postToCity, setPostToCity] = useState('Marrakech');
+  const [postPickupSpot, setPostPickupSpot] = useState('Maarif - Boulevard Zerktouni (Twin Center)');
+  const [postSeats, setPostSeats] = useState(4);
+  const [postPriceMAD, setPostPriceMAD] = useState(120);
+  const [postDepartureTime, setPostDepartureTime] = useState('15:30 (Aujourd’hui)');
+  const [postSuccessMsg, setPostSuccessMsg] = useState(false);
+
   const handleSendOffer = (ride: RideRequest, price: number) => {
     onDriverAcceptRide(ride.id, price);
+  };
+
+  const handlePublishTripOffer = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPostSuccessMsg(true);
+    setTimeout(() => {
+      setPostSuccessMsg(false);
+      setShowPostTripModal(false);
+      alert(`Départ Grand Taxi publié avec succès ! Votre course ${postFromCity} ➔ ${postToCity} (${postSeats} places à ${postPriceMAD} MAD) est visible pour les voyageurs.`);
+    }, 1200);
   };
 
   return (
@@ -76,7 +110,7 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold font-['Outfit',sans-serif]">
-                  Si Hassan El Amrani
+                  {driverDisplayName}
                 </h2>
                 <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
                   Chauffeur Agréé
@@ -84,12 +118,23 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
               </div>
               
               <div className="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-amber-400 font-semibold">Dacia Lodgy 7-Places (Climatisée)</span>
+                <span className="text-amber-400 font-semibold">{driverVehicleName}</span>
                 <span>·</span>
-                <span className="text-slate-300 font-mono">Lagrima #3108 Casablanca</span>
+                <span className="text-slate-300 font-mono">{driverLicenceLabel}</span>
                 <span>·</span>
-                <span className="text-amber-400 font-bold">★ 4.94 (1,420 courses)</span>
+                <span className="text-amber-400 font-bold">★ 4.95 (1,420 courses)</span>
               </div>
+
+              {!isDriverLoggedIn && onOpenAuthModal && (
+                <div className="mt-2">
+                  <button
+                    onClick={onOpenAuthModal}
+                    className="text-xs text-amber-400 hover:text-amber-300 underline font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Vous êtes chauffeur ? Connectez votre profil agréé</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -270,7 +315,7 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
                 onClick={() => {
                   setTripStep('at_pickup');
                   onUpdateRideStatus('arrived_at_pickup');
-                  alert('Notification sent to passenger: "Your Grand Taxi is waiting outside at your doorstep!"');
+                  notifyDriver('Arrivé au pas de la porte du passager ! Notification envoyée.');
                 }}
                 className={`py-3 px-4 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   tripStep === 'at_pickup'
@@ -279,14 +324,14 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
                 }`}
               >
                 <MapPin className="w-4 h-4 text-amber-600" />
-                <span>1. Arrived at Doorstep</span>
+                <span>1. Arrivé au Point de Rendez-vous</span>
               </button>
 
               <button
                 onClick={() => {
                   setTripStep('on_autoroute');
                   onUpdateRideStatus('in_progress');
-                  alert('Trip started! Driving onto the Autoroute.');
+                  notifyDriver('Course démarrée ! Trajet sur l’autoroute nationale.');
                 }}
                 className={`py-3 px-4 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   tripStep === 'on_autoroute'
@@ -295,19 +340,19 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
                 }`}
               >
                 <Navigation className="w-4 h-4 text-blue-600" />
-                <span>2. Start Highway Run</span>
+                <span>2. Départ sur l’Autoroute</span>
               </button>
 
               <button
                 onClick={() => {
                   setTripStep('delivered');
                   onUpdateRideStatus('completed');
-                  alert(`Trip Completed! ${activeDriverRide.proposedPriceMAD} MAD credited to your Chauffeur wallet.`);
+                  notifyDriver(`Course terminée ! ${activeDriverRide.proposedPriceMAD} MAD crédités sur votre portefeuille.`);
                 }}
                 className="py-3 px-4 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>3. Complete & Settle ({activeDriverRide.proposedPriceMAD} MAD)</span>
+                <span>3. Terminer & Encaisser ({activeDriverRide.proposedPriceMAD} MAD)</span>
               </button>
             </div>
           </div>
@@ -330,9 +375,19 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              <span>Scanning Casablanca, Rabat, Marrakech Corridors</span>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => setShowPostTripModal(true)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Publier un Départ Chauffeur</span>
+              </button>
+
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span className="hidden sm:inline">Corridors Actifs</span>
+              </div>
             </div>
           </div>
 
@@ -445,17 +500,181 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
           </div>
 
           {pendingRides.length === 0 && (
-            <div className="p-12 text-center rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700">
-              <Car className="w-10 h-10 text-slate-400 mx-auto mb-2 opacity-50" />
-              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                No Pending Ride Requests Right Now
-              </h4>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                Switch to Passenger Mode in the top bar to launch a new Korsa request and see it appear here live on the chauffeur radar!
-              </p>
+            <div className="p-10 text-center rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
+              <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto relative">
+                <div className="absolute inset-0 rounded-full border-2 border-amber-500/30 animate-ping"></div>
+                <Navigation className="w-8 h-8 text-amber-500" />
+              </div>
+              <div className="max-w-md mx-auto space-y-1">
+                <h4 className="text-base font-bold text-slate-900 dark:text-white font-['Outfit',sans-serif]">
+                  Radar Inter-Villes Actif · 0 course en attente
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Aucune demande de trajet en attente sur ce corridor. Dès qu’un voyageur soumettra une course (ex: Casablanca ➔ Rabat ou Marrakech), elle apparaîtra instantanément ici avec son tarif proposé.
+                </p>
+              </div>
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPostTripModal(true)}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Publier un Départ Chauffeur (Places Libres)</span>
+                </button>
+              </div>
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* POST TRIP MODAL FOR DRIVER */}
+      {showPostTripModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+                  <Car className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white font-['Outfit',sans-serif]">
+                    Publier un Départ Grand Taxi · إعلان رحلة
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Proposez un trajet interurbain avec vos places libres et votre tarif.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPostTripModal(false)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {postSuccessMsg && (
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-xs text-emerald-800 dark:text-emerald-300 font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Publication réussie ! Votre trajet est visible sur le réseau Korsa.</span>
+              </div>
+            )}
+
+            <form onSubmit={handlePublishTripOffer} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Ville de Départ
+                  </label>
+                  <select
+                    value={postFromCity}
+                    onChange={(e) => setPostFromCity(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    <option>Casablanca</option>
+                    <option>Rabat</option>
+                    <option>Marrakech</option>
+                    <option>Tanger</option>
+                    <option>Fès</option>
+                    <option>Agadir</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Ville de Destination
+                  </label>
+                  <select
+                    value={postToCity}
+                    onChange={(e) => setPostToCity(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    <option>Marrakech</option>
+                    <option>Rabat</option>
+                    <option>Casablanca</option>
+                    <option>Tanger</option>
+                    <option>Agadir</option>
+                    <option>Essaouira</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Point de Ramassage Prévu (Quartier / Repère)
+                </label>
+                <input
+                  type="text"
+                  value={postPickupSpot}
+                  onChange={(e) => setPostPickupSpot(e.target.value)}
+                  placeholder="Ex: Maarif Boulevard Zerktouni, Gare Casa-Port"
+                  className="w-full mt-1 px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Places Disponibles (1 à 6)
+                  </label>
+                  <select
+                    value={postSeats}
+                    onChange={(e) => setPostSeats(Number(e.target.value))}
+                    className="w-full mt-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold font-mono"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map(num => (
+                      <option key={num} value={num}>{num} place(s)</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Prix par Place (MAD)
+                  </label>
+                  <input
+                    type="number"
+                    value={postPriceMAD}
+                    onChange={(e) => setPostPriceMAD(Number(e.target.value))}
+                    className="w-full mt-1 px-3 py-2 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Heure de Départ
+                </label>
+                <input
+                  type="text"
+                  value={postDepartureTime}
+                  onChange={(e) => setPostDepartureTime(e.target.value)}
+                  className="w-full mt-1 px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPostTripModal(false)}
+                  className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer"
+                >
+                  Publier l'Offre
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

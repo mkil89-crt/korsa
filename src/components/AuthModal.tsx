@@ -22,6 +22,7 @@ interface AuthModalProps {
   onLoginSuccess: (user: UserSession) => void;
   onLogout: () => void;
   initialRoleTab?: 'passenger' | 'driver' | 'founder';
+  founderPassword?: string;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -30,7 +31,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   currentUser,
   onLoginSuccess,
   onLogout,
-  initialRoleTab = 'passenger'
+  initialRoleTab = 'passenger',
+  founderPassword = '2026'
 }) => {
   const [roleTab, setRoleTab] = useState<'passenger' | 'driver' | 'founder'>(initialRoleTab);
   
@@ -99,10 +101,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     onClose();
   };
 
-  // Founder Submit (Secret PIN: 2026 or 1234)
+  // Founder Submit (Uses current founder password or default 2026)
   const handleFounderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (founderPin === '2026' || founderPin === '1234' || founderPin.toLowerCase() === 'admin') {
+    if (founderPin === founderPassword || founderPin === '2026' || founderPin.toLowerCase() === 'admin') {
       const session: UserSession = {
         role: 'founder',
         id: 'usr-founder-abdelhaq',

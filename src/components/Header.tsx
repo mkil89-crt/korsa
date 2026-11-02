@@ -120,25 +120,26 @@ export const Header: React.FC<HeaderProps> = ({
 
 
 
-            {/* User Login / Profile Button */}
+            {/* User Login / Register Button */}
             <button
               onClick={onOpenAuthModal}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-colors cursor-pointer border ${
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer border ${
                 currentUser
                   ? 'bg-slate-900 text-white dark:bg-slate-800 border-slate-700'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
               }`}
-              title={currentUser ? `Connecté: ${currentUser.name}` : 'Se connecter / S’inscrire'}
+              title={currentUser ? `Connecté: ${currentUser.name}` : 'Créer un compte ou se connecter'}
             >
               {currentUser ? (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  <span className="max-w-[100px] truncate">{currentUser.name.split(' ')[0]}</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="max-w-[130px] truncate">{currentUser.name.split(' ')[0]}</span>
+                  <span className="text-[10px] text-slate-400">({currentUser.role === 'driver' ? 'Chauffeur' : currentUser.role === 'founder' ? 'Fondateur' : 'Client'})</span>
                 </>
               ) : (
                 <>
                   <LogIn className="w-3.5 h-3.5" />
-                  <span>Connexion</span>
+                  <span>S'inscrire & Connexion</span>
                 </>
               )}
             </button>

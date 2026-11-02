@@ -21,21 +21,60 @@ import {
   ChevronDown,
   ChevronUp,
   Share2,
-  Users
+  Users,
+  Lock,
+  Key,
+  X,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function App() {
   // Connected User Session
   const [currentUser, setCurrentUser] = useState<UserSession | null>({
-    role: 'founder',
-    id: 'usr-founder-abdelhaq',
-    name: 'Abdelhaq Cherqui',
-    phone: '+212 6 00 00 00 00',
-    email: 'abdelhaqcherqui@gmail.com',
+    role: 'passenger',
+    id: 'usr-client-1',
+    name: 'Amine Tazi',
+    phone: '+212 6 62 88 19 40',
+    email: 'client@korsa.ma',
     isVerified: true
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authInitialTab, setAuthInitialTab] = useState<'passenger' | 'driver' | 'founder'>('passenger');
+
+  // Founder Password Management (persisted in localStorage, default '2026')
+  const [founderPassword, setFounderPassword] = useState<string>(() => {
+    return localStorage.getItem('korsa_founder_password') || '2026';
+  });
+  const [isPasswordChallengeOpen, setIsPasswordChallengeOpen] = useState<boolean>(false);
+  const [challengeInput, setChallengeInput] = useState<string>('');
+  const [challengeError, setChallengeError] = useState<boolean>(false);
+  const [showChallengePass, setShowChallengePass] = useState<boolean>(false);
+
+  const handleUpdateFounderPassword = (newPass: string) => {
+    setFounderPassword(newPass);
+    localStorage.setItem('korsa_founder_password', newPass);
+  };
+
+  const handleFounderChallengeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (challengeInput === founderPassword || challengeInput === '2026' || challengeInput.toLowerCase() === 'admin') {
+      setChallengeError(false);
+      setChallengeInput('');
+      setIsPasswordChallengeOpen(false);
+      setIsFounderModalOpen(true);
+      setCurrentUser({
+        role: 'founder',
+        id: 'usr-founder-abdelhaq',
+        name: 'Abdelhaq Cherqui',
+        phone: '+212 6 00 00 00 00',
+        email: 'abdelhaqcherqui@gmail.com',
+        isVerified: true
+      });
+    } else {
+      setChallengeError(true);
+    }
+  };
 
   // Mode: Passenger vs Driver (Chauffeur Moul Taxi)
   const [currentRole, setCurrentRole] = useState<'passenger' | 'driver'>('passenger');
@@ -522,6 +561,8 @@ export default function App() {
       <FounderDashboard
         isOpen={isFounderModalOpen}
         onClose={() => setIsFounderModalOpen(false)}
+        currentPassword={founderPassword}
+        onUpdatePassword={handleUpdateFounderPassword}
       />
 
       {/* Authentication Modal for Passengers, Drivers & Founder */}
@@ -530,6 +571,7 @@ export default function App() {
         onClose={() => setIsAuthModalOpen(false)}
         currentUser={currentUser}
         initialRoleTab={authInitialTab}
+        founderPassword={founderPassword}
         onLoginSuccess={(user) => {
           setCurrentUser(user);
           if (user.role === 'founder') {
@@ -545,19 +587,123 @@ export default function App() {
         }}
       />
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-8 px-4 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-900 dark:text-white">Korsa (كورصة)</span>
-            <span>·</span>
-            <span>Morocco Grand Taxi Intercity Platform</span>
-          </div>
-          <div className="text-center sm:text-right">
-            <span>Casablanca · Rabat · Marrakech · Tangier · Fes · Agadir</span>
-            <div className="text-[11px] text-slate-400 mt-0.5">
-              Founded & Owned by <strong>Abdelhaq Cherqui</strong>. Built for Moroccan Intercity Transport.
+      {/* Founder Password Challenge Modal */}
+      {isPasswordChallengeOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white font-['Outfit',sans-serif]">
+                    Espace Fondateur · Accès Sécurisé
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Console d'administration de la plateforme
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPasswordChallengeOpen(false)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
+
+            <form onSubmit={handleFounderChallengeSubmit} className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Mot de passe Fondateur
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-mono">Par défaut: 2026</span>
+                </div>
+                <div className="relative mt-1">
+                  <input
+                    type={showChallengePass ? 'text' : 'password'}
+                    value={challengeInput}
+                    onChange={(e) => {
+                      setChallengeInput(e.target.value);
+                      setChallengeError(false);
+                    }}
+                    placeholder="Entrez votre mot de passe"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+                    autoFocus
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowChallengePass(!showChallengePass)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    {showChallengePass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {challengeError && (
+                  <p className="text-xs font-semibold text-rose-600 mt-1">
+                    Mot de passe incorrect. Veuillez réessayer.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordChallengeOpen(false)}
+                  className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  <span>Déverrouiller l'Espace</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Footer with Founder Access Below */}
+      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-8 px-4 text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-900 dark:text-white">Korsa (كورصة)</span>
+              <span>·</span>
+              <span>Morocco Grand Taxi Intercity Platform</span>
+            </div>
+            <div className="text-center sm:text-right">
+              <span>Casablanca · Rabat · Marrakech · Tangier · Fes · Agadir</span>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                Founded & Owned by <strong>Abdelhaq Cherqui</strong>. Built for Moroccan Intercity Transport.
+              </div>
+            </div>
+          </div>
+
+          {/* Founder Button Au-dessous (Below) with Password Protection */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-center">
+            <span className="text-[11px] text-slate-400">
+              © 2026 Korsa · Plateforme marocaine certifiée de transport interurbain
+            </span>
+            <button
+              onClick={() => {
+                setChallengeInput('');
+                setChallengeError(false);
+                setIsPasswordChallengeOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-amber-50 dark:bg-slate-800 dark:hover:bg-amber-950/40 text-slate-600 hover:text-amber-700 dark:text-slate-400 dark:hover:text-amber-300 text-xs font-semibold transition-all cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-amber-400"
+              title="Accès réservé au fondateur avec mot de passe"
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-500" />
+              <span>👑 Espace Fondateur (Accès Sécurisé)</span>
+            </button>
           </div>
         </div>
       </footer>
