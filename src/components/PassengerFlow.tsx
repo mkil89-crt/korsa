@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   Send
 } from 'lucide-react';
-import { MoroccanCity, RideRequest, DriverBid, RideType, UserSession } from '../types';
+import { MoroccanCity, RideRequest, DriverBid, RideType, UserSession } from '../types/index';
 import { MOROCCAN_CITIES, getRouteBenchmark } from '../data/moroccanCities';
 import { MOCK_CERTIFIED_DRIVERS } from '../data/mockDrivers';
 import { DirectContactCard } from './DirectContactCard';
@@ -440,6 +440,7 @@ export const PassengerFlow: React.FC<PassengerFlowProps> = ({
                     type="text"
                     value={passengerName}
                     onChange={(e) => setPassengerName(e.target.value)}
+                    placeholder="Votre nom complet"
                     className="w-full mt-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
                     required
                   />
@@ -452,6 +453,7 @@ export const PassengerFlow: React.FC<PassengerFlowProps> = ({
                     type="tel"
                     value={passengerPhone}
                     onChange={(e) => setPassengerPhone(e.target.value)}
+                    placeholder="06XXXXXXXX ou +212..."
                     className="w-full mt-1 px-3 py-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
                     required
                   />

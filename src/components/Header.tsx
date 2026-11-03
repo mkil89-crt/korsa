@@ -1,6 +1,6 @@
 import React from 'react';
 import { Car, Wallet, ArrowRightLeft, ShieldCheck, PhoneCall, User, LogIn, Crown } from 'lucide-react';
-import { UserSession } from '../types';
+import { UserSession } from '../types/index';
 
 interface HeaderProps {
   currentRole: 'passenger' | 'driver';

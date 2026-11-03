@@ -12,7 +12,7 @@ import {
   Download,
   AlertCircle
 } from 'lucide-react';
-import { PaymentMethod, WalletTransaction, RideRequest } from '../types';
+import { PaymentMethod, WalletTransaction, RideRequest } from '../types/index';
 
 interface PaymentSystemModalProps {
   isOpen: boolean;
@@ -34,13 +34,12 @@ export const PaymentSystemModal: React.FC<PaymentSystemModalProps> = ({
   transactions
 }) => {
   const [activeTab, setActiveTab] = useState<'pay_ride' | 'wallet_topup' | 'transactions'>('pay_ride');
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('wallet');
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('cash');
   
-  // Card form state
-  const [cardHolder, setCardHolder] = useState('Anas El Mansouri');
-  const [cardNumber, setCardNumber] = useState('4230 8912 3456 7890');
-  const [cardExpiry, setCardExpiry] = useState('08/28');
-  const [cardCvv, setCardCvv] = useState('382');
+  // Card form state (CVV removed, payment strictly defaults to cash)
+  const [cardHolder, setCardHolder] = useState('Passager Korsa');
+  const [cardNumber, setCardNumber] = useState('•••• •••• •••• ••••');
+  const [cardExpiry, setCardExpiry] = useState('••/••');
   const [selectedBank, setSelectedBank] = useState<string>('Attijariwafa Bank');
 
   // Top-up amount state
@@ -358,43 +357,35 @@ export const PaymentSystemModal: React.FC<PaymentSystemModalProps> = ({
                   />
                 </div>
 
-                {/* Option 2: CMI Bank Card */}
+                {/* Option 2: CMI Bank Card (Disabled - Cash only) */}
                 <div
-                  onClick={() => setSelectedMethod('card')}
-                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                    selectedMethod === 'card'
-                      ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                  }`}
+                  className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 opacity-60 bg-slate-50 dark:bg-slate-800/30 cursor-not-allowed flex items-center justify-between"
+                  title="Seul le paiement en espèces est autorisé actuellement"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-600/10 text-blue-600 flex items-center justify-center font-bold">
+                    <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-500 flex items-center justify-center font-bold">
                       <CreditCard className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-white">
-                        Moroccan Bank Card (CMI / Visa / Mastercard)
+                      <div className="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <span>Carte Bancaire (CMI / Visa)</span>
+                        <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 px-2 py-0.5 rounded-md font-semibold">
+                          Bientôt disponible
+                        </span>
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Attijariwafa, CIH, BCP, BMCE Bank
+                      <div className="text-xs text-slate-400">
+                        Sécurisation CMI en cours d'intégration · Réglez en espèces
                       </div>
                     </div>
                   </div>
-                  <input
-                    type="radio"
-                    name="payment_choice"
-                    checked={selectedMethod === 'card'}
-                    onChange={() => setSelectedMethod('card')}
-                    className="w-4 h-4 text-amber-600 focus:ring-amber-500"
-                  />
                 </div>
 
-                {/* Option 3: Cash on Board */}
+                {/* Option 3: Cash on Board (Active) */}
                 <div
                   onClick={() => setSelectedMethod('cash')}
                   className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                     selectedMethod === 'cash'
-                      ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500'
+                      ? 'border-amber-500 bg-amber-500/10 ring-2 ring-amber-500'
                       : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
                   }`}
                 >
@@ -403,11 +394,14 @@ export const PaymentSystemModal: React.FC<PaymentSystemModalProps> = ({
                       <Banknote className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-white">
-                        Cash on Board (Espèces au Chauffeur)
+                      <div className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>Cash on Board (Espèces au Chauffeur)</span>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded font-bold">
+                          Recommandé
+                        </span>
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Pay Dirhams directly to driver at destination with digital receipt
+                        Paiement direct en Dirhams au chauffeur à destination avec reçu numérique
                       </div>
                     </div>
                   </div>
@@ -420,78 +414,6 @@ export const PaymentSystemModal: React.FC<PaymentSystemModalProps> = ({
                   />
                 </div>
               </div>
-
-              {/* Conditional Card Form */}
-              {selectedMethod === 'card' && (
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3 animate-in fade-in">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      Card Details
-                    </span>
-                    <div className="flex gap-1.5 text-[10px] font-bold text-slate-500">
-                      <span className="px-1.5 py-0.5 bg-white dark:bg-slate-700 border rounded">CMI</span>
-                      <span className="px-1.5 py-0.5 bg-white dark:bg-slate-700 border rounded">VISA</span>
-                      <span className="px-1.5 py-0.5 bg-white dark:bg-slate-700 border rounded">MC</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-medium text-slate-500">Issuing Moroccan Bank</label>
-                    <select
-                      value={selectedBank}
-                      onChange={(e) => setSelectedBank(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
-                    >
-                      <option>Attijariwafa Bank</option>
-                      <option>CIH Bank (Code 30)</option>
-                      <option>Banque Populaire (BCP)</option>
-                      <option>Bank of Africa (BMCE)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-medium text-slate-500">Cardholder Name</label>
-                    <input
-                      type="text"
-                      value={cardHolder}
-                      onChange={(e) => setCardHolder(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-medium text-slate-500">Card Number</label>
-                    <input
-                      type="text"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[11px] font-medium text-slate-500">Expiry (MM/YY)</label>
-                      <input
-                        type="text"
-                        value={cardExpiry}
-                        onChange={(e) => setCardExpiry(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-medium text-slate-500">CVV (3 digits)</label>
-                      <input
-                        type="password"
-                        maxLength={3}
-                        value={cardCvv}
-                        onChange={(e) => setCardCvv(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Insufficient wallet note */}
               {selectedMethod === 'wallet' && walletBalance < fareAmount && (

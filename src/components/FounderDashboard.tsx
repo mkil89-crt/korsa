@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  ShieldAlert,
   Sliders,
   DollarSign,
   TrendingUp,
@@ -18,58 +17,70 @@ import {
   Copy,
   Save,
   ArrowRight,
-  Key,
-  Eye,
-  EyeOff
+  Search,
+  Ban,
+  Unlock,
+  AlertTriangle,
+  RotateCw,
+  Phone,
+  Clock,
+  X
 } from 'lucide-react';
 import { MOROCCAN_CITIES } from '../data/moroccanCities';
+import { DriverStatus, SuspensionDuration, DriverSuspensionDetails } from '../types/index';
+
+export interface DashboardDriver {
+  id: string;
+  name: string;
+  phone: string;
+  city: string;
+  carModel: string;
+  carYear?: number;
+  lagrimaNumber: string;
+  plateNumber: string;
+  status: DriverStatus;
+  suspension?: DriverSuspensionDetails;
+}
 
 interface FounderDashboardProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'financials' | 'drivers' | 'ownership' | 'rib_payouts' | 'security';
-  currentPassword?: string;
-  onUpdatePassword?: (newPassword: string) => void;
+  initialTab?: 'financials' | 'drivers' | 'ownership' | 'rib_payouts';
+  onDriverSuspended?: (phoneOrId: string, reason: string) => void;
 }
 
 export const FounderDashboard: React.FC<FounderDashboardProps> = ({
   isOpen,
   onClose,
   initialTab = 'financials',
-  currentPassword = '2026',
-  onUpdatePassword
+  onDriverSuspended
 }) => {
   const [commissionRate, setCommissionRate] = useState<number>(8); // 8% default
-  const [activeTab, setActiveTab] = useState<'financials' | 'drivers' | 'ownership' | 'rib_payouts' | 'security'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'financials' | 'drivers' | 'ownership' | 'rib_payouts'>(initialTab);
   
-  // Password modification state
-  const [oldPasswordInput, setOldPasswordInput] = useState('');
-  const [newPasswordInput, setNewPasswordInput] = useState('');
-  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [passwordStatusMsg, setPasswordStatusMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  
-  // Pending driver approvals state
-  const [pendingDrivers, setPendingDrivers] = useState([
+  // Drivers Management State
+  const [driversList, setDriversList] = useState<DashboardDriver[]>([
     {
-      id: 'drv-req-1',
-      name: 'Mohamed El Ouardi',
+      id: 'drv-hassan-1',
+      name: 'Hassan El Amrani',
+      phone: '+212 6 61 48 92 10',
       city: 'Casablanca',
-      lagrimaNumber: 'Lagrima #4912',
-      carModel: 'Dacia Lodgy (2024)',
-      phone: '+212 6 65 21 88 44',
-      status: 'pending'
-    },
-    {
-      id: 'drv-req-2',
-      name: 'Abdellah Chraibi',
-      city: 'Marrakech',
-      lagrimaNumber: 'Lagrima #2019',
-      carModel: 'Mercedes-Benz E220',
-      phone: '+212 6 71 40 92 11',
-      status: 'pending'
+      carModel: 'Dacia Lodgy 7-Places',
+      carYear: 2023,
+      lagrimaNumber: 'Lagrima #3108',
+      plateNumber: '61492 - A - 6',
+      status: 'approved'
     }
   ]);
+  const [driverSearchQuery, setDriverSearchQuery] = useState('');
+  const [driverStatusFilter, setDriverStatusFilter] = useState<'all' | DriverStatus>('all');
+  const [loadingDrivers, setLoadingDrivers] = useState(false);
+
+  // Suspension Modal State
+  const [driverToSuspend, setDriverToSuspend] = useState<DashboardDriver | null>(null);
+  const [suspensionDuration, setSuspensionDuration] = useState<SuspensionDuration>('7_days');
+  const [suspensionReason, setSuspensionReason] = useState('');
+  const [suspensionError, setSuspensionError] = useState<string | null>(null);
 
   // Founder Bank RIB State
   const [accountHolder, setAccountHolder] = useState('Abdelhaq Cherqui');
@@ -80,6 +91,22 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
   const [ribSavedNotification, setRibSavedNotification] = useState(false);
   const [transferPending, setTransferPending] = useState(false);
   const [transferSuccess, setTransferSuccess] = useState<string | null>(null);
+
+  // Fetch drivers from server on open
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingDrivers(true);
+      fetch('/api/drivers')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.drivers) && data.drivers.length > 0) {
+            setDriversList(data.drivers);
+          }
+        })
+        .catch(err => console.error('[Failed to fetch drivers]', err))
+        .finally(() => setLoadingDrivers(false));
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -99,7 +126,6 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
     const found = MOROCCAN_BANKS.find(b => b.name === bankName);
     if (found) {
       setBankCode(found.code);
-      // update prefix of rib if desired
       if (ribDigits.length >= 3) {
         setRibDigits(found.code + ribDigits.slice(3));
       }
@@ -121,39 +147,79 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
     }, 1200);
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  // Driver Actions: Approve, Reject, Suspend, Unsuspend
+  const handleUpdateDriverStatus = async (
+    driver: DashboardDriver,
+    newStatus: DriverStatus,
+    reason?: string,
+    duration?: SuspensionDuration
+  ) => {
+    try {
+      await fetch('/api/drivers/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: driver.id,
+          phone: driver.phone,
+          status: newStatus,
+          reason,
+          duration
+        })
+      });
+    } catch (err) {
+      console.error('[Error updating driver status]', err);
+    }
+
+    setDriversList(prev => prev.map(d => {
+      if (d.id === driver.id) {
+        if (newStatus === 'suspended') {
+          return {
+            ...d,
+            status: 'suspended',
+            suspension: {
+              reason: reason || 'Non précisé',
+              duration: duration || '7_days',
+              suspendedAt: new Date().toISOString()
+            }
+          };
+        }
+        return { ...d, status: newStatus, suspension: undefined };
+      }
+      return d;
+    }));
+
+    if (newStatus === 'suspended' && onDriverSuspended) {
+      onDriverSuspended(driver.phone, reason || 'Compte suspendu par le fondateur');
+    }
+  };
+
+  const confirmBlockDriver = (e: React.FormEvent) => {
     e.preventDefault();
-    if (oldPasswordInput !== currentPassword) {
-      setPasswordStatusMsg({ text: 'L’ancien mot de passe est incorrect.', type: 'error' });
+    if (!suspensionReason.trim()) {
+      setSuspensionError('Le motif de blocage est strictement obligatoire.');
       return;
     }
-    if (newPasswordInput.length < 4) {
-      setPasswordStatusMsg({ text: 'Le nouveau mot de passe doit comporter au moins 4 caractères.', type: 'error' });
-      return;
-    }
-    if (newPasswordInput !== confirmPasswordInput) {
-      setPasswordStatusMsg({ text: 'Les deux nouveaux mots de passe ne correspondent pas.', type: 'error' });
-      return;
-    }
+    if (!driverToSuspend) return;
 
-    if (onUpdatePassword) {
-      onUpdatePassword(newPasswordInput);
-    }
-    setPasswordStatusMsg({ text: 'Votre mot de passe Fondateur a été mis à jour avec succès !', type: 'success' });
-    setOldPasswordInput('');
-    setNewPasswordInput('');
-    setConfirmPasswordInput('');
+    handleUpdateDriverStatus(driverToSuspend, 'suspended', suspensionReason.trim(), suspensionDuration);
+    setDriverToSuspend(null);
+    setSuspensionReason('');
+    setSuspensionError(null);
   };
 
-  const handleApproveDriver = (id: string) => {
-    setPendingDrivers(prev => prev.map(d => d.id === id ? { ...d, status: 'approved' } : d));
-  };
+  // Filtered drivers list
+  const filteredDrivers = driversList.filter(d => {
+    const matchesSearch =
+      d.name.toLowerCase().includes(driverSearchQuery.toLowerCase()) ||
+      d.phone.includes(driverSearchQuery) ||
+      d.city.toLowerCase().includes(driverSearchQuery.toLowerCase()) ||
+      d.lagrimaNumber.toLowerCase().includes(driverSearchQuery.toLowerCase()) ||
+      d.plateNumber.toLowerCase().includes(driverSearchQuery.toLowerCase());
 
-  const handleRejectDriver = (id: string) => {
-    setPendingDrivers(prev => prev.map(d => d.id === id ? { ...d, status: 'rejected' } : d));
-  };
+    const matchesStatus = driverStatusFilter === 'all' || d.status === driverStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
-  // Format 24-digit RIB into: XXX XXX XXXXXXXXXXXXXXXX XX
   const formattedRib = ribDigits
     .replace(/\s/g, '')
     .replace(/(\d{3})(\d{3})(\d{16})(\d{2})/, '$1 $2 $3 $4');
@@ -162,7 +228,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Top Header */}
         <div className="px-6 py-5 bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950 text-white flex items-center justify-between border-b border-slate-800">
@@ -173,14 +239,14 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold font-['Outfit',sans-serif]">
-                  Founder & Super-Admin Console
+                  Console Fondateur & Super-Admin
                 </h2>
                 <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono font-bold">
                   Owner Portal
                 </span>
               </div>
               <p className="text-xs text-slate-300">
-                Founded by <strong>Abdelhaq Cherqui</strong> · Korsa Platform Administration
+                Fondateur : <strong>Abdelhaq Cherqui</strong> · Administration Korsa Maroc
               </p>
             </div>
           </div>
@@ -189,11 +255,11 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
             onClick={onClose}
             className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
           >
-            Exit Console
+            Quitter la console
           </button>
         </div>
 
-        {/* Tab Strip with Security Tab Added */}
+        {/* Tab Strip */}
         <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-6 pt-3 gap-6 text-xs font-bold overflow-x-auto">
           <button
             onClick={() => setActiveTab('financials')}
@@ -203,10 +269,9 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            Revenue & Commissions
+            Revenus & Commissions
           </button>
 
-          {/* THE RIB TAB REQUESTED BY USER */}
           <button
             onClick={() => setActiveTab('rib_payouts')}
             className={`pb-3 border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
@@ -221,29 +286,19 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
 
           <button
             onClick={() => setActiveTab('drivers')}
-            className={`pb-3 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`pb-3 border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
               activeTab === 'drivers'
                 ? 'border-amber-500 text-amber-600 dark:text-amber-400'
                 : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            Driver Approvals ({pendingDrivers.filter(d => d.status === 'pending').length} Pending)
-          </button>
-
-          {/* SECURITY & PASSWORD TAB */}
-          <button
-            onClick={() => {
-              setActiveTab('security');
-              setPasswordStatusMsg(null);
-            }}
-            className={`pb-3 border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === 'security'
-                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <Key className="w-3.5 h-3.5" />
-            <span>Mot de passe & Sécurité</span>
+            <Car className="w-3.5 h-3.5" />
+            <span>Gestion des Chauffeurs</span>
+            {driversList.filter(d => d.status === 'pending').length > 0 && (
+              <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 rounded-full text-[10px] font-bold">
+                {driversList.filter(d => d.status === 'pending').length} en attente
+              </span>
+            )}
           </button>
 
           <button
@@ -254,18 +309,58 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            Ownership & OMPIC
+            Propriété Légale & OMPIC
           </button>
         </div>
 
         {/* Body Content */}
         <div className="p-6 md:p-8 overflow-y-auto space-y-6">
           
-          {/* TAB: MON RIB BANCAIRE (THE FOCAL USER REQUEST) */}
+          {/* TAB 1: REVENUE & COMMISSIONS */}
+          {activeTab === 'financials' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-1">
+                  <span className="text-[11px] font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider">
+                    Volume Brut Transité
+                  </span>
+                  <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
+                    148 920 <span className="text-sm font-normal text-amber-600">MAD</span>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-1">
+                  <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider">
+                    Gains Nets Fondateur ({commissionRate}%)
+                  </span>
+                  <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
+                    {netCommissionMAD.toLocaleString()} <span className="text-sm font-normal">MAD</span>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1">
+                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    Taux de Commission
+                  </span>
+                  <div className="flex items-center gap-3 pt-1">
+                    <input
+                      type="range"
+                      min={5}
+                      max={15}
+                      value={commissionRate}
+                      onChange={(e) => setCommissionRate(Number(e.target.value))}
+                      className="w-full accent-amber-500 cursor-pointer"
+                    />
+                    <span className="font-mono font-bold text-base text-amber-600">{commissionRate}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: MON RIB BANCAIRE */}
           {activeTab === 'rib_payouts' && (
             <div className="space-y-6">
-              
-              {/* Header Banner */}
               <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="inline-flex items-center gap-1.5 bg-black/20 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase">
@@ -273,380 +368,274 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
                     <span>Compte Bancaire Marocain (RIB 24 Chiffres)</span>
                   </div>
                   <h3 className="text-xl font-extrabold font-['Outfit',sans-serif]">
-                    Espace RIB du Fondateur · الحساب البنكي
+                    {netCommissionMAD.toLocaleString()} MAD Prêts au Virement
                   </h3>
-                  <p className="text-xs text-emerald-100 max-w-lg">
-                    Renseignez votre RIB bancaire marocain pour recevoir automatiquement les commissions et les revenus générés par la plateforme Korsa.
+                  <p className="text-xs text-emerald-100">
+                    Vos commissions de plateforme sont virées directement sur votre compte bancaire marocain.
                   </p>
                 </div>
 
-                {/* Available for Payout */}
-                <div className="bg-white/10 backdrop-blur-md border border-white/20 p-3.5 rounded-xl text-right shrink-0">
-                  <div className="text-[10px] text-emerald-200 font-semibold uppercase">
-                    Solde à Virer
-                  </div>
-                  <div className="text-2xl font-mono font-extrabold tabular-nums">
-                    {netCommissionMAD} <span className="text-xs font-sans">MAD</span>
-                  </div>
-                  <span className="text-[10px] text-emerald-200 block">Commissions nettes prêtes</span>
-                </div>
+                <button
+                  onClick={handleExecutePayout}
+                  disabled={transferPending}
+                  className="px-5 py-3 bg-white text-emerald-800 font-extrabold text-xs rounded-xl shadow-lg hover:bg-emerald-50 transition-all cursor-pointer whitespace-nowrap"
+                >
+                  {transferPending ? 'Virement en cours...' : 'Virer vers mon RIB'}
+                </button>
               </div>
 
-              {/* Notification if RIB saved */}
-              {ribSavedNotification && (
-                <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2 animate-in fade-in">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="font-bold">
-                    Votre RIB marocain a été enregistré avec succès ! Tous les virements de commissions seront envoyés à ce compte.
-                  </span>
-                </div>
-              )}
-
-              {/* Transfer Success Receipt Modal/Banner */}
               {transferSuccess && (
-                <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span>Ordre de Virement Interbancaire Transmis avec Succès!</span>
-                    </div>
-                    <button
-                      onClick={() => setTransferSuccess(null)}
-                      className="text-xs text-slate-400 hover:text-white"
-                    >
-                      Fermer
-                    </button>
-                  </div>
-                  <div className="font-mono text-xs bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Référence Virement:</span>
-                      <span className="text-amber-400 font-bold">{transferSuccess}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Bénéficiaire:</span>
-                      <span>{accountHolder}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Banque Destinataire:</span>
-                      <span>{selectedBank}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">RIB:</span>
-                      <span>{formattedRib}</span>
-                    </div>
-                    <div className="flex justify-between border-t border-slate-800 pt-1 text-sm font-bold">
-                      <span className="text-slate-300">Montant Viré:</span>
-                      <span className="text-emerald-400">{netCommissionMAD} MAD</span>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Délai de compensation interbancaire SIMT Bank Al-Maghrib : 2 à 24 heures ouvrées.
-                  </p>
+                <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>Ordre de virement validé ! Réf : <strong>{transferSuccess}</strong> vers votre compte {selectedBank}.</span>
                 </div>
               )}
 
-              {/* RIB FORM */}
-              <form onSubmit={handleSaveRib} className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-5">
-                
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <Building className="w-4 h-4 text-amber-600" />
-                    Coordonnées Bancaires Marocaines
-                  </h4>
-                  <span className="text-xs font-mono text-slate-500">
-                    Norme Bank Al-Maghrib · 24 Caractères
-                  </span>
-                </div>
+              <form onSubmit={handleSaveRib} className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Coordonnées Bancaires du Titulaire
+                </h4>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  
-                  {/* Bank Select */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Votre Banque Marocaine (Banque Domiciliataire)
-                    </label>
-                    <select
-                      value={selectedBank}
-                      onChange={(e) => handleBankSelect(e.target.value)}
-                      className="w-full mt-1.5 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                    >
-                      {MOROCCAN_BANKS.map((b) => (
-                        <option key={b.name} value={b.name}>
-                          {b.name} (Code: {b.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Account Holder Name */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Nom & Prénom du Titulaire (Exactement comme sur votre chéquier)
-                    </label>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Titulaire du compte</label>
                     <input
                       type="text"
                       value={accountHolder}
                       onChange={(e) => setAccountHolder(e.target.value)}
-                      className="w-full mt-1.5 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                      required
+                      className="w-full mt-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
                     />
                   </div>
-
-                </div>
-
-                {/* THE 24-DIGIT RIB INPUT */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <CreditCard className="w-3.5 h-3.5 text-amber-600" />
-                      Numéro de RIB Marocain (24 Chiffres)
-                    </label>
-                    <span className={`text-xs font-mono font-bold ${
-                      ribDigits.replace(/\s/g, '').length === 24 ? 'text-emerald-600' : 'text-amber-600'
-                    }`}>
-                      {ribDigits.replace(/\s/g, '').length} / 24 chiffres
-                    </span>
-                  </div>
-
-                  <div className="relative">
-                    <input
-                      type="text"
-                      maxLength={24}
-                      value={ribDigits}
-                      onChange={(e) => {
-                        const clean = e.target.value.replace(/[^0-9]/g, '');
-                        setRibDigits(clean);
-                      }}
-                      placeholder="Ex: 007780000123456789012345"
-                      className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-amber-500 rounded-xl font-mono text-base font-extrabold tracking-widest text-slate-900 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  {/* Visual Structure breakdown */}
-                  <div className="grid grid-cols-4 gap-2 pt-1 text-[10px] font-mono text-slate-500">
-                    <div className="p-2 rounded bg-slate-100 dark:bg-slate-900 border text-center">
-                      <span className="block font-bold text-slate-700 dark:text-slate-300">
-                        {ribDigits.slice(0, 3) || '007'}
-                      </span>
-                      <span>Code Banque (3)</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-100 dark:bg-slate-900 border text-center">
-                      <span className="block font-bold text-slate-700 dark:text-slate-300">
-                        {ribDigits.slice(3, 6) || '780'}
-                      </span>
-                      <span>Code Ville/Guichet (3)</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-100 dark:bg-slate-900 border text-center">
-                      <span className="block font-bold text-slate-700 dark:text-slate-300">
-                        {ribDigits.slice(6, 22) || '0001234567890123'}
-                      </span>
-                      <span>Numéro Compte (16)</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-100 dark:bg-slate-900 border text-center">
-                      <span className="block font-bold text-slate-700 dark:text-slate-300">
-                        {ribDigits.slice(22, 24) || '45'}
-                      </span>
-                      <span>Clé RIB (2)</span>
-                    </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Banque Marocaine</label>
+                    <select
+                      value={selectedBank}
+                      onChange={(e) => handleBankSelect(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                    >
+                      {MOROCCAN_BANKS.map(b => (
+                        <option key={b.code} value={b.name}>{b.name} (Code {b.code})</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
-                {/* City Agency */}
                 <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Agence Bancaire (Ville & Quartier)
-                  </label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">RIB Marocain (24 Chiffres)</label>
                   <input
                     type="text"
-                    value={cityBranch}
-                    onChange={(e) => setCityBranch(e.target.value)}
-                    placeholder="Ex: Casablanca Maarif, Rabat Agdal, Marrakech Gueliz"
-                    className="w-full mt-1.5 px-3.5 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                    maxLength={24}
+                    value={ribDigits}
+                    onChange={(e) => setRibDigits(e.target.value.replace(/\D/g, ''))}
+                    className="w-full mt-1 px-3.5 py-2.5 text-xs font-mono font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl tracking-wider"
                   />
+                  <span className="text-[10px] text-slate-400 font-mono mt-1 block">{formattedRib}</span>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-3">
-                  <button
-                    type="submit"
-                    className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>Enregistrer et Valider ce RIB</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleExecutePayout}
-                    disabled={transferPending || ribDigits.length < 24}
-                    className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-extrabold text-xs rounded-xl transition-all shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Landmark className="w-4 h-4" />
-                    <span>
-                      {transferPending ? 'Ordre de virement en cours...' : `Virer mes ${netCommissionMAD} MAD vers ce RIB`}
-                    </span>
-                  </button>
-                </div>
-
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-slate-900 text-white dark:bg-amber-500 dark:text-slate-950 font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Sauvegarder le RIB
+                </button>
               </form>
-
-              {/* Moroccan Banking Spec Info Box */}
-              <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
-                <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Sécurité et Virements Automatiques (SIMT Maroc)</span>
-                </div>
-                <p>
-                  Votre RIB est crypté et sauvegardé. En production, les fonds récoltés auprès des clients (par carte CMI ou recharge de portefeuille) sont virés automatiquement sur votre compte bancaire marocain selon votre convenance.
-                </p>
-              </div>
-
             </div>
           )}
 
-          {/* TAB 1: FINANCIALS */}
-          {activeTab === 'financials' && (
+          {/* TAB 3: GESTION & BLOCAGE DES CHAUFFEURS (REQUIREMENT 4) */}
+          {activeTab === 'drivers' && (
             <div className="space-y-6">
               
-              {/* Top Stats Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Total Platform Gross Volume
-                  </span>
-                  <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white tabular-nums">
-                    148,920 <span className="text-xs font-sans text-amber-600">MAD</span>
-                  </div>
-                  <span className="text-[10px] text-emerald-600 font-semibold">+18.4% this month</span>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-1">
-                  <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
-                    Your Founder Net Commission ({commissionRate}%)
-                  </span>
-                  <div className="text-2xl font-bold font-mono text-amber-900 dark:text-amber-100 tabular-nums">
-                    {netCommissionMAD} <span className="text-xs font-sans text-amber-600">MAD</span>
-                  </div>
-                  <span className="text-[10px] text-amber-700 dark:text-amber-300">Directly into your business account</span>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Active Certified Grand Taxis
-                  </span>
-                  <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white tabular-nums">
-                    142 <span className="text-xs font-sans text-slate-400">Cars</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500">Across 10 Moroccan cities</span>
-                </div>
-              </div>
-
-              {/* Commission Slider Control */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                      Set Platform Commission Rate per Trip
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Standard industry benchmark is 5% to 10% (inDrive charges ~10%, Uber charges 25%).
-                    </p>
-                  </div>
-                  <div className="text-2xl font-extrabold font-mono text-amber-600 tabular-nums">
-                    {commissionRate}%
-                  </div>
-                </div>
-
-                <input
-                  type="range"
-                  min={3}
-                  max={15}
-                  step={1}
-                  value={commissionRate}
-                  onChange={(e) => setCommissionRate(Number(e.target.value))}
-                  className="w-full accent-amber-500 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer"
-                />
-
-                <div className="flex justify-between text-[11px] text-slate-400 font-mono">
-                  <span>3% (Driver friendly)</span>
-                  <span>8% (Recommended balance)</span>
-                  <span>15% (Maximum)</span>
-                </div>
-              </div>
-
-              {/* Quick shortcut to RIB */}
-              <div className="p-4 rounded-2xl border border-dashed border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 flex items-center justify-between">
+              {/* Header & Search */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                    RIB Bancaire Actuel pour vos versements
-                  </div>
-                  <div className="text-xs font-mono text-slate-600 dark:text-slate-400">
-                    {selectedBank} · {formattedRib}
-                  </div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Car className="w-5 h-5 text-amber-500" />
+                    <span>Contrôle & Gestion des Chauffeurs Grand Taxi</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Approuvez les nouveaux chauffeurs, consultez leurs documents et suspendez les comptes en cas d'infraction.
+                  </p>
                 </div>
+
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={driverSearchQuery}
+                    onChange={(e) => setDriverSearchQuery(e.target.value)}
+                    placeholder="Recherche (nom, tél, agrément...)"
+                    className="w-full pl-9 pr-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              {/* Status Filter Pills */}
+              <div className="flex flex-wrap gap-2 text-xs font-semibold">
                 <button
-                  onClick={() => setActiveTab('rib_payouts')}
-                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                  onClick={() => setDriverStatusFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${
+                    driverStatusFilter === 'all'
+                      ? 'bg-slate-900 text-white dark:bg-amber-500 dark:text-slate-950'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
                 >
-                  Modifier mon RIB
+                  Tous ({driversList.length})
+                </button>
+                <button
+                  onClick={() => setDriverStatusFilter('pending')}
+                  className={`px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${
+                    driverStatusFilter === 'pending'
+                      ? 'bg-amber-500 text-slate-950 font-bold'
+                      : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
+                  }`}
+                >
+                  En attente ({driversList.filter(d => d.status === 'pending').length})
+                </button>
+                <button
+                  onClick={() => setDriverStatusFilter('approved')}
+                  className={`px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${
+                    driverStatusFilter === 'approved'
+                      ? 'bg-emerald-600 text-white font-bold'
+                      : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                  }`}
+                >
+                  Agréés ({driversList.filter(d => d.status === 'approved').length})
+                </button>
+                <button
+                  onClick={() => setDriverStatusFilter('suspended')}
+                  className={`px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${
+                    driverStatusFilter === 'suspended'
+                      ? 'bg-rose-600 text-white font-bold'
+                      : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
+                  }`}
+                >
+                  Bloqués / Suspendus ({driversList.filter(d => d.status === 'suspended').length})
                 </button>
               </div>
 
-            </div>
-          )}
-
-          {/* TAB 2: DRIVER APPROVALS */}
-          {activeTab === 'drivers' && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                Grand Taxi Drivers Awaiting Verification
-              </h3>
-              
+              {/* Drivers Cards List */}
               <div className="space-y-3">
-                {pendingDrivers.map((driver) => (
+                {loadingDrivers && (
+                  <div className="p-6 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                    <RotateCw className="w-4 h-4 animate-spin" />
+                    <span>Chargement de la liste des chauffeurs...</span>
+                  </div>
+                )}
+
+                {!loadingDrivers && filteredDrivers.length === 0 && (
+                  <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-slate-500 text-xs">
+                    Aucun chauffeur trouvé dans cette catégorie.
+                  </div>
+                )}
+
+                {filteredDrivers.map((driver) => (
                   <div
                     key={driver.id}
-                    className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2.5">
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                           {driver.name}
                         </h4>
-                        <span className="text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded">
-                          {driver.lagrimaNumber}
-                        </span>
+
+                        {/* Status Badge */}
+                        {driver.status === 'pending' && (
+                          <span className="text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
+                            ⏳ En attente de validation
+                          </span>
+                        )}
+                        {driver.status === 'approved' && (
+                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Agréé Korsa
+                          </span>
+                        )}
+                        {driver.status === 'suspended' && (
+                          <span className="text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 px-2 py-0.5 rounded-full border border-rose-300 dark:border-rose-800 flex items-center gap-1">
+                            <Ban className="w-3 h-3" /> Suspendu / Bloqué
+                          </span>
+                        )}
+                        {driver.status === 'rejected' && (
+                          <span className="text-[10px] font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 px-2 py-0.5 rounded-full">
+                            Refusé
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {driver.city} · {driver.carModel} · {driver.phone}
+
+                      <div className="text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-3 font-mono">
+                        <span>📞 {driver.phone}</span>
+                        <span>·</span>
+                        <span>📍 {driver.city}</span>
+                        <span>·</span>
+                        <span>📜 {driver.lagrimaNumber}</span>
+                        <span>·</span>
+                        <span>🚗 {driver.carModel} ({driver.plateNumber})</span>
                       </div>
+
+                      {/* Suspension Reason Info */}
+                      {driver.status === 'suspended' && driver.suspension && (
+                        <div className="mt-2 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-300">
+                          <strong>Motif du blocage :</strong> {driver.suspension.reason} · <strong>Durée :</strong> {
+                            driver.suspension.duration === '1_day' ? '1 Jour' :
+                            driver.suspension.duration === '7_days' ? '7 Jours' :
+                            driver.suspension.duration === '30_days' ? '30 Jours' : 'Définitif'
+                          }
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {driver.status === 'pending' ? (
+                    {/* Actions Toolbar */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {driver.status === 'pending' && (
                         <>
                           <button
-                            onClick={() => handleApproveDriver(driver.id)}
-                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                            onClick={() => handleUpdateDriverStatus(driver, 'approved')}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
                           >
-                            Approve Lagrima
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approuver</span>
                           </button>
                           <button
-                            onClick={() => handleRejectDriver(driver.id)}
-                            className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 text-rose-600 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                            onClick={() => handleUpdateDriverStatus(driver, 'rejected')}
+                            className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-600 text-slate-600 dark:text-slate-400 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                           >
-                            Reject
+                            Refuser
                           </button>
                         </>
-                      ) : driver.status === 'approved' ? (
-                        <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                          <CheckCircle2 className="w-4 h-4" /> Approved
-                        </span>
-                      ) : (
-                        <span className="text-xs font-bold text-rose-600 flex items-center gap-1">
-                          <XCircle className="w-4 h-4" /> Rejected
-                        </span>
+                      )}
+
+                      {driver.status === 'approved' && (
+                        <button
+                          onClick={() => {
+                            setDriverToSuspend(driver);
+                            setSuspensionReason('');
+                            setSuspensionError(null);
+                          }}
+                          className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                          <span>Bloquer le Chauffeur</span>
+                        </button>
+                      )}
+
+                      {driver.status === 'suspended' && (
+                        <button
+                          onClick={() => handleUpdateDriverStatus(driver, 'approved')}
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        >
+                          <Unlock className="w-3.5 h-3.5" />
+                          <span>Débloquer le Chauffeur</span>
+                        </button>
+                      )}
+
+                      {driver.status === 'rejected' && (
+                        <button
+                          onClick={() => handleUpdateDriverStatus(driver, 'approved')}
+                          className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-100 cursor-pointer"
+                        >
+                          Réexaminer
+                        </button>
                       )}
                     </div>
                   </div>
@@ -655,157 +644,135 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
             </div>
           )}
 
-          {/* TAB 3: LEGAL OWNERSHIP */}
+          {/* TAB 4: LEGAL OWNERSHIP */}
           {activeTab === 'ownership' && (
             <div className="space-y-4 text-xs text-slate-600 dark:text-slate-300">
               <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-2">
                 <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-sm">
                   <Award className="w-5 h-5 text-amber-600" />
-                  <span>Founding Ownership Certificate</span>
+                  <span>Certificat de Propriété Fondateur</span>
                 </div>
                 <p>
-                  This application, its architecture, name, and codebase are designed under the vision of founder <strong>Abdelhaq Cherqui</strong>.
+                  Cette plateforme, son code source, son algorithme d'enchère et la marque Korsa sont sous la propriété exclusive de <strong>Abdelhaq Cherqui</strong>.
                 </p>
               </div>
 
               <div className="space-y-3 pt-2">
                 <h4 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">
-                  Next Steps to Formalize Your Ownership in Morocco:
+                  Formalités Légales OMPIC & CRI :
                 </h4>
                 
                 <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
                   <div className="font-bold text-slate-800 dark:text-slate-200">
-                    1. Office Marocain de la Propriété Industrielle (OMPIC)
+                    1. Dépôt de marque OMPIC
                   </div>
                   <p className="text-slate-500">
-                    Register the brand name "Korsa" and trademark in Casablanca at OMPIC (classes 9 & 39 for ride hailing & digital software).
+                    Enregistrement de la marque Korsa (Classes 9 et 39 pour logiciels et transport interurbain).
                   </p>
                 </div>
 
                 <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
                   <div className="font-bold text-slate-800 dark:text-slate-200">
-                    2. Company Incorporation (SARL / CRI)
+                    2. Création de société (CRI SARL)
                   </div>
                   <p className="text-slate-500">
-                    Create your company (e.g., Korsa Mobility SARL) via the regional investment center (CRI) with your ICE and tax registration.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-                  <div className="font-bold text-slate-800 dark:text-slate-200">
-                    3. Moroccan Payment Integration (CMI Contract)
-                  </div>
-                  <p className="text-slate-500">
-                    Sign an e-commerce merchant contract with the Centre Monétique Interbancaire (CMI) or bank partners to collect online card payments directly into your Moroccan bank account.
+                    Création de l'entité juridique Korsa Mobility SARL avec identifiant fiscal (ICE) à Casablanca.
                   </p>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* TAB 4: MOT DE PASSE & SÉCURITÉ */}
-          {activeTab === 'security' && (
-            <div className="space-y-6">
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 text-white border border-slate-800 space-y-2">
-                <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
-                  <Key className="w-5 h-5" />
-                  <span>Sécurité & Protection de l'Espace Fondateur</span>
-                </div>
-                <p className="text-xs text-slate-300">
-                  Ce mot de passe protège votre console propriétaire (taux de commissions, RIB bancaire et validation des chauffeurs). Vous pouvez le modifier à tout moment ci-dessous.
-                </p>
-              </div>
-
-              {passwordStatusMsg && (
-                <div className={`p-4 rounded-xl text-xs font-semibold flex items-center gap-2.5 ${
-                  passwordStatusMsg.type === 'success'
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 text-emerald-800 dark:text-emerald-300'
-                    : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 text-rose-800 dark:text-rose-300'
-                }`}>
-                  {passwordStatusMsg.type === 'success' ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                  )}
-                  <span>{passwordStatusMsg.text}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleChangePassword} className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-amber-600" />
-                  Changer le Mot de Passe Fondateur
-                </h4>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Mot de passe actuel
-                  </label>
-                  <div className="relative mt-1">
-                    <input
-                      type={showPass ? 'text' : 'password'}
-                      value={oldPasswordInput}
-                      onChange={(e) => setOldPasswordInput(e.target.value)}
-                      placeholder="Mot de passe actuel (par défaut : 2026)"
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPass(!showPass)}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
-                    >
-                      {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Nouveau mot de passe
-                    </label>
-                    <input
-                      type={showPass ? 'text' : 'password'}
-                      value={newPasswordInput}
-                      onChange={(e) => setNewPasswordInput(e.target.value)}
-                      placeholder="Min. 4 caractères"
-                      className="w-full mt-1 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Confirmer le nouveau mot de passe
-                    </label>
-                    <input
-                      type={showPass ? 'text' : 'password'}
-                      value={confirmPasswordInput}
-                      onChange={(e) => setConfirmPasswordInput(e.target.value)}
-                      placeholder="Retapez le nouveau mot de passe"
-                      className="w-full mt-1 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>Mettre à jour le mot de passe Fondateur</span>
-                  </button>
-                </div>
-              </form>
             </div>
           )}
 
         </div>
 
       </div>
+
+      {/* SUSPENSION MODAL (Duration + Mandatory Reason) */}
+      {driverToSuspend && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-rose-600">
+                <Ban className="w-5 h-5" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Bloquer le Chauffeur
+                </h3>
+              </div>
+              <button
+                onClick={() => setDriverToSuspend(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-xs space-y-1">
+              <div><strong>Chauffeur :</strong> {driverToSuspend.name}</div>
+              <div><strong>Téléphone :</strong> {driverToSuspend.phone}</div>
+              <div><strong>Agrément :</strong> {driverToSuspend.lagrimaNumber}</div>
+            </div>
+
+            <form onSubmit={confirmBlockDriver} className="space-y-4">
+              {suspensionError && (
+                <div className="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{suspensionError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Durée de la suspension *
+                </label>
+                <select
+                  value={suspensionDuration}
+                  onChange={(e) => setSuspensionDuration(e.target.value as SuspensionDuration)}
+                  className="w-full mt-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                >
+                  <option value="1_day">1 Jour (Avertissement)</option>
+                  <option value="7_days">7 Jours (Infraction mineure)</option>
+                  <option value="30_days">30 Jours (Infraction grave)</option>
+                  <option value="permanent">Définitif (Radiation de la plateforme)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Motif obligatoire du blocage *
+                </label>
+                <textarea
+                  rows={3}
+                  value={suspensionReason}
+                  onChange={(e) => {
+                    setSuspensionReason(e.target.value);
+                    setSuspensionError(null);
+                  }}
+                  placeholder="Précisez le motif exact (ex: Non-respect du tarif convenu, absence au point de rendez-vous...)"
+                  className="w-full mt-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDriverToSuspend(null)}
+                  className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold cursor-pointer hover:bg-slate-100"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  <span>Confirmer le blocage</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

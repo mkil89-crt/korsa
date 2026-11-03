@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   Share2
 } from 'lucide-react';
-import { RideRequest, DriverBid } from '../types';
+import { RideRequest, DriverBid } from '../types/index';
 import { DriverAvatar } from './DriverAvatar';
 
 interface ActiveTripTrackerProps {

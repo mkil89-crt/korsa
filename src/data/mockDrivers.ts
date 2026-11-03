@@ -1,4 +1,4 @@
-import { DriverBid } from '../types';
+import { DriverBid } from '../types/index';
 
 export const MOCK_CERTIFIED_DRIVERS: DriverBid[] = [
   {

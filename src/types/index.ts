@@ -88,8 +88,17 @@ export interface BankCard {
   cardNumber: string;
   cardHolder: string;
   expiry: string;
-  cvv: string;
   bankName: 'Attijariwafa Bank' | 'CIH Bank' | 'Banque Populaire' | 'Bank of Africa';
+}
+
+export type DriverStatus = 'approved' | 'pending' | 'rejected' | 'suspended';
+export type SuspensionDuration = '1_day' | '7_days' | '30_days' | 'permanent';
+
+export interface DriverSuspensionDetails {
+  reason: string;
+  duration: SuspensionDuration;
+  suspendedAt: string;
+  expiresAt?: string;
 }
 
 export interface UserSession {
@@ -101,12 +110,15 @@ export interface UserSession {
   avatar?: string;
   city?: string;
   isVerified?: boolean;
+  isSuspended?: boolean;
+  suspensionReason?: string;
   driverDetails?: {
     carModel: string;
     carYear: number;
     lagrimaNumber: string;
     plateNumber: string;
     taxiCity: string;
-    status: 'approved' | 'pending' | 'rejected';
+    status: DriverStatus;
+    suspension?: DriverSuspensionDetails;
   };
 }

@@ -1,4 +1,4 @@
-import { MoroccanCity, IntercityRouteBenchmark } from '../types';
+import { MoroccanCity, IntercityRouteBenchmark } from '../types/index';
 
 export const MOROCCAN_CITIES: MoroccanCity[] = [
   {

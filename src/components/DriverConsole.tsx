@@ -16,9 +16,11 @@ import {
   Plus,
   Landmark,
   X,
-  Building
+  Building,
+  AlertTriangle,
+  Lock
 } from 'lucide-react';
-import { RideRequest, DriverBid, UserSession } from '../types';
+import { RideRequest, DriverBid, UserSession } from '../types/index';
 import { DirectContactCard } from './DirectContactCard';
 
 interface DriverConsoleProps {
@@ -49,47 +51,77 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
   const [tripStep, setTripStep] = useState<'approaching' | 'at_pickup' | 'on_autoroute' | 'delivered'>('approaching');
   const [driverActionToast, setDriverActionToast] = useState<string | null>(null);
 
+  const notifyDriver = (msg: string) => {
+    setDriverActionToast(msg);
+    setTimeout(() => setDriverActionToast(null), 3500);
+  };
+
   const isDriverLoggedIn = currentUser?.role === 'driver';
-  const driverDisplayName = isDriverLoggedIn ? currentUser.name : 'Si Hassan El Amrani';
+  const driverStatus = currentUser?.driverDetails?.status || 'approved';
+  const isDriverPending = isDriverLoggedIn && driverStatus === 'pending';
+  const isDriverSuspended = isDriverLoggedIn && driverStatus === 'suspended';
+
+  const driverDisplayName = isDriverLoggedIn ? currentUser.name : 'Chauffeur Moul Taxi';
   const driverVehicleName = isDriverLoggedIn && currentUser.driverDetails?.carModel
     ? currentUser.driverDetails.carModel
-    : 'Dacia Lodgy 7-Places (Climatisée)';
+    : 'Grand Taxi Agréé';
   const driverLicenceLabel = isDriverLoggedIn && currentUser.driverDetails?.lagrimaNumber
     ? `${currentUser.driverDetails.lagrimaNumber} ${currentUser.city || ''}`
-    : 'Lagrima #3108 Casablanca';
+    : 'Agrément Grand Taxi';
 
-  // Driver RIB state
+  // Driver RIB state - clean initial state
   const [showDriverRibModal, setShowDriverRibModal] = useState(false);
-  const [driverBank, setDriverBank] = useState('CIH Bank (Code 30)');
-  const [driverRib, setDriverRib] = useState('230780000987654321098765');
+  const [driverBank, setDriverBank] = useState('Attijariwafa Bank (Code 007)');
+  const [driverRib, setDriverRib] = useState('');
   const [ribSuccess, setRibSuccess] = useState(false);
 
   // Driver Post Trip Offer State
   const [showPostTripModal, setShowPostTripModal] = useState(false);
   const [postFromCity, setPostFromCity] = useState('Casablanca');
   const [postToCity, setPostToCity] = useState('Marrakech');
-  const [postPickupSpot, setPostPickupSpot] = useState('Maarif - Boulevard Zerktouni (Twin Center)');
+  const [postPickupSpot, setPostPickupSpot] = useState('');
   const [postSeats, setPostSeats] = useState(4);
   const [postPriceMAD, setPostPriceMAD] = useState(120);
-  const [postDepartureTime, setPostDepartureTime] = useState('15:30 (Aujourd’hui)');
+  const [postDepartureTime, setPostDepartureTime] = useState('');
   const [postSuccessMsg, setPostSuccessMsg] = useState(false);
 
   const handleSendOffer = (ride: RideRequest, price: number) => {
+    if (isDriverPending) {
+      notifyDriver("Votre compte est en attente d'approbation par le fondateur. Action impossible.");
+      return;
+    }
     onDriverAcceptRide(ride.id, price);
   };
 
   const handlePublishTripOffer = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDriverPending) {
+      notifyDriver("Votre compte chauffeur est en attente d'approbation. Vous ne pouvez pas publier de trajet.");
+      return;
+    }
     setPostSuccessMsg(true);
     setTimeout(() => {
       setPostSuccessMsg(false);
       setShowPostTripModal(false);
-      alert(`Départ Grand Taxi publié avec succès ! Votre course ${postFromCity} ➔ ${postToCity} (${postSeats} places à ${postPriceMAD} MAD) est visible pour les voyageurs.`);
+      notifyDriver(`Départ Grand Taxi publié avec succès ! Votre course ${postFromCity} ➔ ${postToCity} (${postSeats} places à ${postPriceMAD} MAD) est visible pour les voyageurs.`);
     }, 1200);
   };
 
   return (
     <div className="space-y-8">
+
+      {/* Pending Approval Notice Banner */}
+      {isDriverPending && (
+        <div className="p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 text-amber-900 dark:text-amber-200 flex items-start gap-3 shadow-sm animate-in fade-in">
+          <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
+          <div className="space-y-1">
+            <h4 className="font-bold text-sm">Compte Chauffeur en attente d'approbation</h4>
+            <p className="text-xs text-amber-800 dark:text-amber-300">
+              Votre dossier ({driverDisplayName} · {driverVehicleName} · {driverLicenceLabel}) a bien été transmis. L'administration Korsa examine vos documents. Vous ne pouvez pas publier de trajet ni accepter de courses tant que votre compte n'est pas validé.
+            </p>
+          </div>
+        </div>
+      )}
       
       {/* 1. Driver Profile & Vehicle Badge Banner */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-xl border border-slate-800">
@@ -480,14 +512,16 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => handleSendOffer(ride, ride.proposedPriceMAD)}
-                        className="py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm text-center"
+                        disabled={isDriverPending}
+                        className="py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm text-center"
                       >
                         Accept at {ride.proposedPriceMAD} MAD
                       </button>
 
                       <button
                         onClick={() => handleSendOffer(ride, currentBidPrice)}
-                        className="py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm text-center"
+                        disabled={isDriverPending}
+                        className="py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm text-center"
                       >
                         Counter at {currentBidPrice} MAD
                       </button>
@@ -517,10 +551,11 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowPostTripModal(true)}
-                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-2"
+                  disabled={isDriverPending}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Publier un Départ Chauffeur (Places Libres)</span>
+                  <span>{isDriverPending ? 'Publication désactivée (Dossier en cours)' : 'Publier un Départ Chauffeur (Places Libres)'}</span>
                 </button>
               </div>
             </div>

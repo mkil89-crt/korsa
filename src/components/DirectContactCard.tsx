@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Phone, MessageSquare, ShieldCheck, MapPin, CheckCircle2, Car, Copy, Check, Radio } from 'lucide-react';
-import { DriverBid, RideRequest } from '../types';
+import { DriverBid, RideRequest } from '../types/index';
 import { DriverAvatar } from './DriverAvatar';
 
 interface DirectContactCardProps {
