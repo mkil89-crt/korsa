@@ -23,14 +23,14 @@ export const DirectContactCard: React.FC<DirectContactCardProps> = ({
 
   // Target contact info depending on viewer
   const targetName = viewerRole === 'passenger' 
-    ? (driver?.driverName || ride.driverOfferAccepted?.driverName || 'Si Hassan El Amrani')
-    : ride.passengerName;
+    ? (driver?.driverName || ride.driverOfferAccepted?.driverName || 'Chauffeur Moul Taxi')
+    : (ride.passengerName || 'Voyageur');
 
   const targetPhone = viewerRole === 'passenger'
-    ? (driver?.driverPhone || ride.driverOfferAccepted?.driverPhone || '+212 6 61 48 92 10')
-    : ride.passengerPhone;
+    ? (driver?.driverPhone || ride.driverOfferAccepted?.driverPhone || '')
+    : (ride.passengerPhone || '');
 
-  const cleanPhoneForLink = targetPhone.replace(/[\s-]/g, '').replace('+', '');
+  const cleanPhoneForLink = targetPhone ? targetPhone.replace(/[\s-]/g, '').replace('+', '') : '';
 
   // Pre-formatted WhatsApp message in Moroccan context
   const whatsappMessage = viewerRole === 'passenger'

@@ -33,15 +33,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           <div className="lg:col-span-7 p-8 md:p-12 lg:p-14 flex flex-col justify-center space-y-6 z-10">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold w-fit">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>The inDrive & markoub.ma for Moroccan Grand Taxis</span>
+              <span>Le modèle d'enchères Grand Taxi au Maroc · طاكسي كبير بين المدن</span>
             </div>
 
             <div className="space-y-3">
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-[1.1] font-['Outfit',sans-serif]">
-                Travel City to City in a <span className="text-amber-400">Grand Taxi</span> Without Going to the Station.
+                Voyagez de Ville en Ville en <span className="text-amber-400">Grand Taxi Agréé</span> sans Passer par la Mahatta.
               </h1>
               <p className="text-sm sm:text-base text-slate-300 max-w-xl leading-relaxed">
-                Book direct inter-city rides from your doorstep in Casablanca, Rabat, Marrakech, Tangier, and across Morocco. Propose your fare in MAD, negotiate with certified chauffeurs, and call each other directly to meet up without hassle.
+                Réservez vos trajets interurbains de porte à porte depuis Casablanca, Rabat, Marrakech, Tanger et tout le Maroc. Proposez votre tarif en dirhams (MAD), recevez les offres des chauffeurs agréés et partez directement à l'heure qui vous convient.
               </p>
             </div>
 
@@ -49,15 +49,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs text-slate-300">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Zero station crowds</span>
+                <span>Zéro foule à la Mahatta</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Fair inDrive bidding</span>
+                <span>Tarif libre en Dirhams</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Direct phone & PIN</span>
+                <span>Appel direct (+212) & PIN</span>
               </div>
             </div>
 
@@ -67,7 +67,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 onClick={onStartBooking}
                 className="px-7 py-4 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 font-extrabold text-sm rounded-2xl transition-all shadow-lg shadow-amber-500/25 flex items-center gap-2.5 cursor-pointer"
               >
-                <span>Book a Korsa Now</span>
+                <span>Commander une Korsa</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
@@ -75,7 +75,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 onClick={onExploreRoutes}
                 className="px-6 py-4 bg-white/10 hover:bg-white/15 text-white font-bold text-sm rounded-2xl border border-white/20 transition-all cursor-pointer"
               >
-                View Intercity Corridors
+                Voir les Lignes Interurbaines
               </button>
             </div>
           </div>
@@ -84,20 +84,20 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           <div className="lg:col-span-5 relative min-h-[300px] lg:min-h-full">
             <img
               src="/assets/images/korsa_hero_taxi_1793551614833.jpg"
-              alt="Moroccan Grand Taxi on Coastal Highway"
+              alt="Grand Taxi Marocain sur l'Autoroute"
               className="absolute inset-0 w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-gradient-to-t lg:bg-gradient-to-r from-slate-900 via-slate-900/40 to-transparent"></div>
             
             {/* Floating Trust Card */}
-            <div className="absolute bottom-6 right-6 left-6 sm:left-auto sm:max-w-xs bg-slate-950/80 backdrop-blur-md border border-slate-800 p-4 rounded-2xl text-xs space-y-1 text-white shadow-xl">
+            <div className="absolute bottom-6 right-6 left-6 sm:left-auto sm:max-w-xs bg-slate-950/85 backdrop-blur-md border border-slate-800 p-4 rounded-2xl text-xs space-y-1 text-white shadow-xl">
               <div className="flex items-center gap-2 text-amber-400 font-bold">
                 <ShieldCheck className="w-4 h-4" />
-                <span>100% Certified Mouline Taxi</span>
+                <span>100% Chauffeurs Agréés (Lagrima)</span>
               </div>
               <p className="text-[11px] text-slate-300">
-                Official Ministry transport licenses (Lagrima) with verified Moroccan vehicle insurance and inspected drivers.
+                Agréments officiels de transport délivrés par les Wilayas, assurance professionnelle des passagers et véhicules vérifiés.
               </p>
             </div>
           </div>
@@ -114,10 +114,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <Car className="w-6 h-6" />
           </div>
           <h3 className="text-base font-bold text-slate-900 dark:text-white font-['Outfit',sans-serif]">
-            No More Taxi Stations (Mahatta)
+            Finie l'Attente en Gare (Mahatta)
           </h3>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            Skip the noise, aggressive touts (*courtia*), and waiting for hours at Oulad Ziane or Kamra. The Grand Taxi comes directly to your chosen neighborhood or doorstep.
+            Évitez les rabatteurs (courtia), le bruit et les longues heures d'attente à Ouled Ziane, Bab Doukkala ou Kamra. Le Grand Taxi vient directement à votre pas de porte ou quartier de rendez-vous.
           </p>
         </div>
 
@@ -127,10 +127,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <PhoneCall className="w-6 h-6" />
           </div>
           <h3 className="text-base font-bold text-slate-900 dark:text-white font-['Outfit',sans-serif]">
-            Direct Phone Call & Mutual PIN
+            Appel Direct Téléphonique & PIN Mutuel
           </h3>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            One-tap Moroccan phone call (+212) and WhatsApp buttons ensure passenger and driver locate each other immediately on the street, verified with a 4-digit security PIN.
+            Un bouton d'appel direct vers le numéro marocain (+212) et WhatsApp pour vous coordonner facilement, sécurisé par un code PIN à 4 chiffres avant de monter à bord.
           </p>
         </div>
 
@@ -140,10 +140,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <Wallet className="w-6 h-6" />
           </div>
           <h3 className="text-base font-bold text-slate-900 dark:text-white font-['Outfit',sans-serif]">
-            Moroccan Dirham Payment System
+            Paiement Espèces à Bord ou Portefeuille
           </h3>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            Complete flexibility: instant Korsa digital wallet, Moroccan bank card payment (CMI / Attijariwafa / CIH / BCP), or traditional cash on arrival with digital receipt.
+            Payez facilement en espèces directement au chauffeur à votre arrivée (Korsa Cash) ou utilisez votre solde portefeuille numérique en dirhams (MAD).
           </p>
         </div>
 

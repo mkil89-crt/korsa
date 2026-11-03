@@ -10,6 +10,7 @@ import { FounderDashboard } from './components/FounderDashboard';
 import { AuthModal } from './components/AuthModal';
 import { RideRequest, DriverBid, WalletTransaction, PaymentMethod, UserSession } from './types/index';
 import { MOCK_CERTIFIED_DRIVERS, INITIAL_WALLET_TRANSACTIONS } from './data/mockDrivers';
+import { IMAGINARY_DEMO_RIDES, IMAGINARY_DEMO_DRIVERS } from './data/imaginaryExamples';
 import {
   Car,
   ShieldCheck,
@@ -57,17 +58,17 @@ export default function App() {
   // Mode: Passenger vs Driver (Chauffeur Moul Taxi)
   const [currentRole, setCurrentRole] = useState<'passenger' | 'driver'>('passenger');
   
-  // Wallet States
-  const [walletBalance, setWalletBalance] = useState<number>(250);
-  const [driverWalletBalance, setDriverWalletBalance] = useState<number>(680);
+  // Wallet States - clean initial state for production
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [driverWalletBalance, setDriverWalletBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>(INITIAL_WALLET_TRANSACTIONS);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
 
   // Active Passenger Ride
   const [currentPassengerRide, setCurrentPassengerRide] = useState<RideRequest | null>(null);
 
-  // Pool of Pending Rides (Visible on Driver Radar - starts clean, populated when passengers launch rides)
-  const [pendingRides, setPendingRides] = useState<RideRequest[]>([]);
+  // Pool of Pending Rides (Visible on Driver Radar - initialized with realistic imaginary demo rides)
+  const [pendingRides, setPendingRides] = useState<RideRequest[]>(IMAGINARY_DEMO_RIDES);
 
   // Active Driver Mission
   const [activeDriverRide, setActiveDriverRide] = useState<RideRequest | null>(null);
@@ -81,48 +82,45 @@ export default function App() {
   // FAQ Accordion State
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  // Dynamic Driver Bids Simulation for Passenger
-  useEffect(() => {
-    if (currentPassengerRide && currentPassengerRide.status === 'bidding' && currentPassengerRide.activeBids.length === 0) {
-      // Simulate incoming driver bids after a brief delay
-      const t1 = setTimeout(() => {
-        const firstDriver = {
-          ...MOCK_CERTIFIED_DRIVERS[0],
-          offeredPriceMAD: currentPassengerRide.proposedPriceMAD
-        };
-        setCurrentPassengerRide(prev => prev ? { ...prev, activeBids: [firstDriver] } : null);
-      }, 2000);
-
-      const t2 = setTimeout(() => {
-        const secondDriver = {
-          ...MOCK_CERTIFIED_DRIVERS[1],
-          offeredPriceMAD: currentPassengerRide.proposedPriceMAD + (currentPassengerRide.rideType === 'korsa_kamla' ? 50 : 5)
-        };
-        setCurrentPassengerRide(prev => prev ? { ...prev, activeBids: [...prev.activeBids, secondDriver] } : null);
-      }, 4500);
-
-      const t3 = setTimeout(() => {
-        const thirdDriver = {
-          ...MOCK_CERTIFIED_DRIVERS[2],
-          offeredPriceMAD: Math.max(20, currentPassengerRide.proposedPriceMAD - (currentPassengerRide.rideType === 'korsa_kamla' ? 30 : 5))
-        };
-        setCurrentPassengerRide(prev => prev ? { ...prev, activeBids: [...prev.activeBids, thirdDriver] } : null);
-      }, 7000);
-
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
-      };
-    }
-  }, [currentPassengerRide?.status]);
-
   // Passenger publishes a new ride
   const handlePublishRide = (newRide: RideRequest) => {
     setCurrentPassengerRide(newRide);
     setPendingRides(prev => [newRide, ...prev]);
     // Scroll down to booking view
     window.scrollTo({ top: 400, behavior: 'smooth' });
+
+    // Automatically simulate an authentic incoming offer from an imaginary certified driver after 2.5 seconds
+    setTimeout(() => {
+      setCurrentPassengerRide(prev => {
+        if (!prev || prev.id !== newRide.id || prev.status !== 'bidding') return prev;
+        if (prev.activeBids.length > 0) return prev;
+        const initialBid: DriverBid = {
+          ...IMAGINARY_DEMO_DRIVERS[0],
+          id: `bid-auto-${Date.now()}`,
+          offeredPriceMAD: newRide.proposedPriceMAD
+        };
+        return {
+          ...prev,
+          activeBids: [initialBid]
+        };
+      });
+    }, 2500);
+  };
+
+  // Helper to simulate additional driver bids manually
+  const handleSimulateImaginaryBid = () => {
+    if (!currentPassengerRide) return;
+    const currentCount = currentPassengerRide.activeBids.length;
+    const template = IMAGINARY_DEMO_DRIVERS[currentCount % IMAGINARY_DEMO_DRIVERS.length];
+    const newBid: DriverBid = {
+      ...template,
+      id: `bid-sim-${Date.now()}-${currentCount}`,
+      offeredPriceMAD: currentPassengerRide.proposedPriceMAD + (currentCount === 1 ? 10 : 0)
+    };
+    setCurrentPassengerRide(prev => prev ? {
+      ...prev,
+      activeBids: [newBid, ...prev.activeBids]
+    } : null);
   };
 
   // Passenger accepts a driver's bid
@@ -154,24 +152,36 @@ export default function App() {
     const target = pendingRides.find(r => r.id === rideId);
     if (!target) return;
 
+    const driverName = (currentUser?.role === 'driver' && currentUser.name)
+      ? currentUser.name
+      : 'Chauffeur Moul Taxi';
+    const driverPhone = (currentUser?.role === 'driver' && currentUser.phone)
+      ? currentUser.phone
+      : '';
+    const driverCarModel = currentUser?.driverDetails?.carModel || 'Grand Taxi Agréé';
+    const driverCarYear = currentUser?.driverDetails?.carYear || 2024;
+    const driverLicense = currentUser?.driverDetails?.lagrimaNumber || 'Agrément Grand Taxi';
+    const driverPlate = currentUser?.driverDetails?.plateNumber || 'Immatriculation Grand Taxi';
+    const driverCity = currentUser?.city || currentUser?.driverDetails?.taxiCity || target.fromCity;
+
     const acceptedDriverBid: DriverBid = {
       id: `bid-chauffeur-${Date.now()}`,
-      driverId: 'drv-hassan',
-      driverName: 'Si Hassan El Amrani',
-      driverPhone: '+212 6 61 48 92 10',
-      driverRating: 4.94,
-      tripsCount: 1420,
-      carModel: 'Dacia Lodgy 7-Places (Climatisée)',
-      carYear: 2023,
-      carColor: 'White & Sand',
-      taxiCity: 'Casablanca',
-      taxiLicenseNumber: 'Lagrima #3108',
-      plateNumber: '61492 - A - 6',
-      photoUrl: '/src/assets/images/korsa_driver_moul_1793551615472.jpg',
+      driverId: currentUser?.id || `drv-${Date.now()}`,
+      driverName,
+      driverPhone,
+      driverRating: 5.0,
+      tripsCount: 1,
+      carModel: driverCarModel,
+      carYear: driverCarYear,
+      carColor: 'Blanc & Jaune',
+      taxiCity: driverCity,
+      taxiLicenseNumber: driverLicense,
+      plateNumber: driverPlate,
+      photoUrl: currentUser?.avatar || '/assets/images/korsa_driver_moul_1793551615472.jpg',
       offeredPriceMAD: customPrice || target.proposedPriceMAD,
       etaMinutes: 6,
-      message: 'Accepting your course! On my way to your doorstep.',
-      timestamp: 'Just now'
+      message: 'Course acceptée. En route pour votre prise en charge.',
+      timestamp: 'À l’instant'
     };
 
     const updatedRide: RideRequest = {
@@ -333,11 +343,13 @@ export default function App() {
             <div id="booking">
               <PassengerFlow
                 currentRide={currentPassengerRide}
+                currentUser={currentUser}
                 onPublishRide={handlePublishRide}
                 onAcceptDriverBid={handleAcceptDriverBid}
                 onCancelRide={handleCancelRide}
                 onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
                 onVerifyMutualPin={handleVerifyMutualPin}
+                onSimulateTestBid={handleSimulateImaginaryBid}
               />
             </div>
           </div>
@@ -348,12 +360,15 @@ export default function App() {
           <div className="space-y-8">
             <DriverConsole
               pendingRides={pendingRides}
+              currentUser={currentUser}
               onDriverAcceptRide={handleDriverAcceptRide}
               activeDriverRide={activeDriverRide}
               onUpdateRideStatus={handleDriverUpdateRideStatus}
               driverWalletBalance={driverWalletBalance}
               onDriverWithdraw={handleDriverWithdraw}
               onVerifyMutualPin={handleVerifyMutualPin}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              onReloadImaginaryRides={() => setPendingRides(IMAGINARY_DEMO_RIDES)}
             />
           </div>
         )}

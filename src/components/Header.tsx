@@ -58,25 +58,25 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => onNavigateSection('routes')}
               className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              Intercity Routes
+              Trajets & Tarifs
             </button>
             <button
               onClick={() => onNavigateSection('booking')}
               className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              Book a Korsa
+              Réserver un Grand Taxi
             </button>
             <button
               onClick={() => onNavigateSection('safety')}
               className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              Direct Contact & Safety
+              Sécurité & Contact Direct
             </button>
             <button
               onClick={() => onNavigateSection('faq')}
               className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              How It Works
+              Comment ça marche
             </button>
           </nav>
 
@@ -89,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-semibold rounded-lg hover:bg-amber-500/20 transition-colors cursor-pointer"
               >
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                <span>Live Ride</span>
+                <span>Course en Direct</span>
               </button>
             )}
 
@@ -97,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onOpenWallet}
               className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-              title="Open Moroccan Dirham Wallet"
+              title="Ouvrir le portefeuille Korsa (MAD)"
             >
               <Wallet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span className="font-mono tabular-nums">{walletBalance} MAD</span>
@@ -114,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <ArrowRightLeft className="w-3.5 h-3.5" />
               <span className="whitespace-nowrap">
-                {currentRole === 'passenger' ? 'Switch to Chauffeur (Moul Taxi)' : 'Switch to Passenger Mode'}
+                {currentRole === 'passenger' ? 'Espace Chauffeur (Moul Taxi)' : 'Mode Passager'}
               </span>
             </button>
 

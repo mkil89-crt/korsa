@@ -41,6 +41,7 @@ export interface ServerDriver {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   city: string;
   carModel: string;
   carYear: number;
@@ -57,18 +58,8 @@ export interface ServerDriver {
 
 const driversDatabase = new Map<string, ServerDriver>();
 
-// Seed initial certified drivers
-driversDatabase.set('212661489210', {
-  id: 'drv-hassan-1',
-  name: 'Hassan El Amrani',
-  phone: '+212 6 61 48 92 10',
-  city: 'Casablanca',
-  carModel: 'Dacia Lodgy 7-Places',
-  carYear: 2023,
-  lagrimaNumber: 'Lagrima #3108',
-  plateNumber: '61492 - A - 6',
-  status: 'approved'
-});
+// Server-side founder credentials (dynamic and modifiable by founder)
+let currentFounderPassword = (process.env.FOUNDER_PASSWORD || 'AbdelhaqKorsa2026!').trim();
 
 // ================= API ROUTES =================
 
@@ -200,13 +191,12 @@ app.post('/api/auth/verify-otp', (req: Request, res: Response) => {
 app.post('/api/auth/founder-login', (req: Request, res: Response) => {
   const { email, password } = req.body;
   const founderEmail = (process.env.FOUNDER_EMAIL || 'abdelhaqcherqui@gmail.com').trim().toLowerCase();
-  const founderPassword = (process.env.FOUNDER_PASSWORD || 'AbdelhaqKorsa2026!').trim();
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email et mot de passe requis.' });
   }
 
-  if (String(email).trim().toLowerCase() !== founderEmail || String(password).trim() !== founderPassword) {
+  if (String(email).trim().toLowerCase() !== founderEmail || String(password).trim() !== currentFounderPassword) {
     return res.status(401).json({ error: 'Email ou mot de passe administrateur incorrect.' });
   }
 
@@ -223,6 +213,36 @@ app.post('/api/auth/founder-login', (req: Request, res: Response) => {
   });
 });
 
+// Endpoint allowing the founder to change their password securely
+app.post('/api/auth/founder-change-password', (req: Request, res: Response) => {
+  const { email, currentPassword, newPassword } = req.body;
+  const founderEmail = (process.env.FOUNDER_EMAIL || 'abdelhaqcherqui@gmail.com').trim().toLowerCase();
+
+  if (!email || !currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Tous les champs (email, mot de passe actuel et nouveau mot de passe) sont obligatoires.' });
+  }
+
+  if (String(email).trim().toLowerCase() !== founderEmail) {
+    return res.status(403).json({ error: 'Seul le compte fondateur officiel peut modifier ce mot de passe.' });
+  }
+
+  if (String(currentPassword).trim() !== currentFounderPassword) {
+    return res.status(401).json({ error: 'Le mot de passe actuel est incorrect.' });
+  }
+
+  if (String(newPassword).trim().length < 6) {
+    return res.status(400).json({ error: 'Le nouveau mot de passe doit comporter au moins 6 caractères.' });
+  }
+
+  currentFounderPassword = String(newPassword).trim();
+  console.log(`[Founder Security] Mot de passe administrateur mis à jour avec succès pour ${founderEmail}`);
+
+  return res.json({
+    success: true,
+    message: 'Votre mot de passe a été modifié avec succès.'
+  });
+});
+
 // 4. Drivers Management Endpoints
 app.get('/api/drivers', (_req: Request, res: Response) => {
   const list = Array.from(driversDatabase.values());
@@ -230,23 +250,31 @@ app.get('/api/drivers', (_req: Request, res: Response) => {
 });
 
 app.post('/api/drivers/register', (req: Request, res: Response) => {
-  const { name, phone, city, carModel, carYear, lagrimaNumber, plateNumber } = req.body;
-  if (!name || !phone || !lagrimaNumber || !carModel || !plateNumber) {
-    return res.status(400).json({ error: 'Tous les champs (Nom, Téléphone, Agrément, Modèle, Matricule) sont obligatoires.' });
+  const { name, phone, email, city, carModel, carYear, lagrimaNumber, plateNumber } = req.body;
+  if (!name || !phone || !email || !lagrimaNumber || !carModel || !plateNumber) {
+    return res.status(400).json({ error: 'Tous les champs (Nom, Téléphone, Email/Gmail, Agrément, Modèle, Matricule) sont obligatoires.' });
   }
 
   const normalized = normalizeMoroccanPhone(phone);
   const existing = driversDatabase.get(normalized);
-  if (existing && existing.status === 'suspended') {
-    return res.status(403).json({
-      error: `Ce chauffeur est actuellement suspendu. Motif : ${existing.suspension?.reason || ''}.`
-    });
+  if (existing) {
+    if (existing.status === 'suspended') {
+      return res.status(403).json({
+        error: `Ce chauffeur est actuellement suspendu. Motif : ${existing.suspension?.reason || ''}.`
+      });
+    }
+    // Update existing driver contact details if re-entering
+    existing.name = name.trim();
+    existing.email = email.trim();
+    if (city) existing.city = city;
+    return res.json({ success: true, driver: existing, isExisting: true });
   }
 
   const newDriver: ServerDriver = {
     id: `drv-${Date.now()}`,
     name: name.trim(),
     phone: phone.trim(),
+    email: email.trim(),
     city: city || 'Casablanca',
     carModel: carModel.trim(),
     carYear: carYear || 2023,
@@ -257,6 +285,39 @@ app.post('/api/drivers/register', (req: Request, res: Response) => {
 
   driversDatabase.set(normalized, newDriver);
   return res.json({ success: true, driver: newDriver });
+});
+
+// 5. Passenger Direct Login & Contact Registration (No confirmation code needed)
+app.post('/api/passengers/login', (req: Request, res: Response) => {
+  const { name, phone, email, city } = req.body;
+  if (!name || !phone || !email) {
+    return res.status(400).json({ error: 'Le nom, le numéro de téléphone et l’adresse email/Gmail sont obligatoires.' });
+  }
+
+  const trimmedPhone = String(phone).trim();
+  if (!MOROCCAN_PHONE_REGEX.test(trimmedPhone)) {
+    return res.status(400).json({
+      error: 'Numéro de téléphone marocain invalide (ex: 06XXXXXXXX, 07XXXXXXXX ou +2126XXXXXXXX).'
+    });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(String(email).trim())) {
+    return res.status(400).json({ error: 'Veuillez saisir une adresse Gmail ou Email valide.' });
+  }
+
+  return res.json({
+    success: true,
+    user: {
+      role: 'passenger',
+      id: `usr-client-${Date.now()}`,
+      name: String(name).trim(),
+      phone: trimmedPhone,
+      email: String(email).trim(),
+      city: city || 'Casablanca',
+      isVerified: true
+    }
+  });
 });
 
 app.post('/api/drivers/status', (req: Request, res: Response) => {

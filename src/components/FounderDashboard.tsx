@@ -24,7 +24,8 @@ import {
   RotateCw,
   Phone,
   Clock,
-  X
+  X,
+  KeyRound
 } from 'lucide-react';
 import { MOROCCAN_CITIES } from '../data/moroccanCities';
 import { DriverStatus, SuspensionDuration, DriverSuspensionDetails } from '../types/index';
@@ -33,6 +34,7 @@ export interface DashboardDriver {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   city: string;
   carModel: string;
   carYear?: number;
@@ -45,7 +47,7 @@ export interface DashboardDriver {
 interface FounderDashboardProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'financials' | 'drivers' | 'ownership' | 'rib_payouts';
+  initialTab?: 'financials' | 'drivers' | 'ownership' | 'rib_payouts' | 'security';
   onDriverSuspended?: (phoneOrId: string, reason: string) => void;
 }
 
@@ -56,25 +58,23 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
   onDriverSuspended
 }) => {
   const [commissionRate, setCommissionRate] = useState<number>(8); // 8% default
-  const [activeTab, setActiveTab] = useState<'financials' | 'drivers' | 'ownership' | 'rib_payouts'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'financials' | 'drivers' | 'ownership' | 'rib_payouts' | 'security'>(initialTab);
   
-  // Drivers Management State
-  const [driversList, setDriversList] = useState<DashboardDriver[]>([
-    {
-      id: 'drv-hassan-1',
-      name: 'Hassan El Amrani',
-      phone: '+212 6 61 48 92 10',
-      city: 'Casablanca',
-      carModel: 'Dacia Lodgy 7-Places',
-      carYear: 2023,
-      lagrimaNumber: 'Lagrima #3108',
-      plateNumber: '61492 - A - 6',
-      status: 'approved'
-    }
-  ]);
+  // Drivers Management State - starts empty for real registered drivers
+  const [driversList, setDriversList] = useState<DashboardDriver[]>([]);
   const [driverSearchQuery, setDriverSearchQuery] = useState('');
   const [driverStatusFilter, setDriverStatusFilter] = useState<'all' | DriverStatus>('all');
   const [loadingDrivers, setLoadingDrivers] = useState(false);
+
+  // Founder Password Management State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [passwordChangeStatus, setPasswordChangeStatus] = useState<{
+    type: 'idle' | 'loading' | 'success' | 'error';
+    message?: string;
+  }>({ type: 'idle' });
 
   // Suspension Modal State
   const [driverToSuspend, setDriverToSuspend] = useState<DashboardDriver | null>(null);
@@ -91,6 +91,55 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
   const [ribSavedNotification, setRibSavedNotification] = useState(false);
   const [transferPending, setTransferPending] = useState(false);
   const [transferSuccess, setTransferSuccess] = useState<string | null>(null);
+
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordChangeStatus({ type: 'idle' });
+
+    if (!currentPasswordInput || !newPasswordInput || !confirmPasswordInput) {
+      setPasswordChangeStatus({ type: 'error', message: 'Tous les champs sont obligatoires.' });
+      return;
+    }
+
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordChangeStatus({ type: 'error', message: 'Le nouveau mot de passe et sa confirmation ne correspondent pas.' });
+      return;
+    }
+
+    if (newPasswordInput.length < 6) {
+      setPasswordChangeStatus({ type: 'error', message: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' });
+      return;
+    }
+
+    setPasswordChangeStatus({ type: 'loading' });
+    try {
+      const res = await fetch('/api/auth/founder-change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'abdelhaqcherqui@gmail.com',
+          currentPassword: currentPasswordInput,
+          newPassword: newPasswordInput
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setPasswordChangeStatus({ type: 'error', message: data.error || 'Erreur lors du changement de mot de passe.' });
+        return;
+      }
+
+      setPasswordChangeStatus({
+        type: 'success',
+        message: 'Mot de passe modifié avec succès ! Vos prochaines connexions utiliseront ce nouveau mot de passe.'
+      });
+      setCurrentPasswordInput('');
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+    } catch {
+      setPasswordChangeStatus({ type: 'error', message: 'Impossible de joindre le serveur pour mettre à jour le mot de passe.' });
+    }
+  };
 
   // Fetch drivers from server on open
   useEffect(() => {
@@ -251,12 +300,25 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-          >
-            Quitter la console
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => {
+                setPasswordChangeStatus({ type: 'idle' });
+                setShowPasswordModal(true);
+              }}
+              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-transform active:scale-95"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>Modifier le mot de passe</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Quitter la console
+            </button>
+          </div>
         </div>
 
         {/* Tab Strip */}
@@ -299,6 +361,18 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
                 {driversList.filter(d => d.status === 'pending').length} en attente
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`pb-3 border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'security'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Sécurité & Mot de Passe</span>
           </button>
 
           <button
@@ -565,6 +639,12 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
 
                       <div className="text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-3 font-mono">
                         <span>📞 {driver.phone}</span>
+                        {driver.email && (
+                          <>
+                            <span>·</span>
+                            <span>✉️ {driver.email}</span>
+                          </>
+                        )}
                         <span>·</span>
                         <span>📍 {driver.city}</span>
                         <span>·</span>
@@ -683,9 +763,232 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
             </div>
           )}
 
+          {/* TAB 5: SECURITY & PASSWORD CHANGE */}
+          {activeTab === 'security' && (
+            <div className="space-y-6 max-w-2xl">
+              <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-bold text-sm">
+                  <Lock className="w-5 h-5" />
+                  <span>Sécurité du Compte Fondateur & Super-Admin</span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  Cette interface vous permet de modifier directement votre mot de passe d'accès à l'espace Fondateur. Le nouveau mot de passe sera immédiatement effectif côté serveur pour toutes vos futures connexions.
+                </p>
+              </div>
+
+              {passwordChangeStatus.type === 'success' && (
+                <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>{passwordChangeStatus.message}</span>
+                </div>
+              )}
+
+              {passwordChangeStatus.type === 'error' && (
+                <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                  <span>{passwordChangeStatus.message}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangePasswordSubmit} className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Formulaire de mise à jour du mot de passe
+                </h4>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                    Email Administrateur
+                  </label>
+                  <input
+                    type="email"
+                    value="abdelhaqcherqui@gmail.com"
+                    disabled
+                    className="w-full mt-1 px-3 py-2 text-xs bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-500 cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                    Mot de passe actuel *
+                  </label>
+                  <input
+                    type="password"
+                    value={currentPasswordInput}
+                    onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                    placeholder="Saisissez votre mot de passe actuel"
+                    required
+                    className="w-full mt-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                      Nouveau mot de passe *
+                    </label>
+                    <input
+                      type="password"
+                      value={newPasswordInput}
+                      onChange={(e) => setNewPasswordInput(e.target.value)}
+                      placeholder="Min. 6 caractères"
+                      required
+                      minLength={6}
+                      className="w-full mt-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                      Confirmer le nouveau mot de passe *
+                    </label>
+                    <input
+                      type="password"
+                      value={confirmPasswordInput}
+                      onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                      placeholder="Répétez le nouveau mot de passe"
+                      required
+                      minLength={6}
+                      className="w-full mt-1 px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={passwordChangeStatus.type === 'loading'}
+                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-md cursor-pointer flex items-center gap-2"
+                  >
+                    {passwordChangeStatus.type === 'loading' ? (
+                      <>
+                        <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Mise à jour en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>Enregistrer le nouveau mot de passe</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
         </div>
 
       </div>
+
+      {/* QUICK CHANGE PASSWORD MODAL */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                <KeyRound className="w-5 h-5" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Modifier le Mot de Passe Fondateur
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordChangeStatus({ type: 'idle' });
+                }}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {passwordChangeStatus.type === 'success' && (
+              <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-semibold border border-emerald-300 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{passwordChangeStatus.message}</span>
+              </div>
+            )}
+
+            {passwordChangeStatus.type === 'error' && (
+              <div className="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{passwordChangeStatus.message}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePasswordSubmit} className="space-y-3.5">
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Mot de passe actuel *
+                </label>
+                <input
+                  type="password"
+                  value={currentPasswordInput}
+                  onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                  placeholder="Votre mot de passe actuel"
+                  className="w-full mt-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Nouveau mot de passe *
+                </label>
+                <input
+                  type="password"
+                  value={newPasswordInput}
+                  onChange={(e) => setNewPasswordInput(e.target.value)}
+                  placeholder="Min. 6 caractères"
+                  minLength={6}
+                  className="w-full mt-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Confirmer le nouveau mot de passe *
+                </label>
+                <input
+                  type="password"
+                  value={confirmPasswordInput}
+                  onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                  placeholder="Répétez le nouveau mot de passe"
+                  minLength={6}
+                  className="w-full mt-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setPasswordChangeStatus({ type: 'idle' });
+                  }}
+                  className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold cursor-pointer hover:bg-slate-100"
+                >
+                  Fermer
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordChangeStatus.type === 'loading'}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                >
+                  {passwordChangeStatus.type === 'loading' ? (
+                    <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <KeyRound className="w-3.5 h-3.5" />
+                  )}
+                  <span>Mettre à jour</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* SUSPENSION MODAL (Duration + Mandatory Reason) */}
       {driverToSuspend && (

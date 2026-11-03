@@ -43,7 +43,7 @@ export const ActiveTripTracker: React.FC<ActiveTripTrackerProps> = ({
   }, []);
 
   const driver = ride.driverOfferAccepted;
-  const cleanPhone = (driver?.driverPhone || '+212661489210').replace(/[\s-]/g, '').replace('+', '');
+  const cleanPhone = driver?.driverPhone ? driver.driverPhone.replace(/[\s-]/g, '').replace('+', '') : '';
 
   const handleShareTrip = () => {
     const text = `I am on a Korsa Grand Taxi from ${ride.fromCity} to ${ride.toCity}. Driver: ${driver?.driverName} (${driver?.taxiLicenseNumber}). Mutual PIN: ${ride.mutualPin}.`;

@@ -18,7 +18,8 @@ import {
   X,
   Building,
   AlertTriangle,
-  Lock
+  Lock,
+  Sparkles
 } from 'lucide-react';
 import { RideRequest, DriverBid, UserSession } from '../types/index';
 import { DirectContactCard } from './DirectContactCard';
@@ -33,6 +34,7 @@ interface DriverConsoleProps {
   onDriverWithdraw: () => void;
   onVerifyMutualPin: (pin: string) => boolean;
   onOpenAuthModal?: () => void;
+  onReloadImaginaryRides?: () => void;
 }
 
 export const DriverConsole: React.FC<DriverConsoleProps> = ({
@@ -44,7 +46,8 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
   driverWalletBalance,
   onDriverWithdraw,
   onVerifyMutualPin,
-  onOpenAuthModal
+  onOpenAuthModal,
+  onReloadImaginaryRides
 }) => {
   const [selectedBidPrice, setSelectedBidPrice] = useState<{ [rideId: string]: number }>({});
   const [etaSelected, setEtaSelected] = useState<number>(8);
@@ -57,7 +60,7 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
   };
 
   const isDriverLoggedIn = currentUser?.role === 'driver';
-  const driverStatus = currentUser?.driverDetails?.status || 'approved';
+  const driverStatus = currentUser?.driverDetails?.status || (isDriverLoggedIn ? 'pending' : 'approved');
   const isDriverPending = isDriverLoggedIn && driverStatus === 'pending';
   const isDriverSuspended = isDriverLoggedIn && driverStatus === 'suspended';
 
@@ -407,7 +410,19 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {onReloadImaginaryRides && (
+                <button
+                  type="button"
+                  onClick={onReloadImaginaryRides}
+                  className="px-3.5 py-2 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 text-amber-900 dark:text-amber-200 border border-amber-300/60 dark:border-amber-800/60 text-xs font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  title="Recharger les exemples imaginaires de courses"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Exemples de courses</span>
+                </button>
+              )}
+
               <button
                 onClick={() => setShowPostTripModal(true)}
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
@@ -437,17 +452,22 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
                     {/* Route and Type Header */}
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-base font-bold text-slate-900 dark:text-white font-['Outfit',sans-serif]">
                             {ride.fromCity} ➔ {ride.toCity}
                           </h4>
+                          {ride.id.startsWith('ride-demo-') && (
+                            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                              Exemple Démo
+                            </span>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
                           <Users className="w-3.5 h-3.5 text-slate-400" />
                           <span>{ride.passengerName}</span>
                           <span>·</span>
                           <span className="font-semibold text-amber-600">
-                            {ride.rideType === 'korsa_kamla' ? 'Private Taxi (6 seats)' : `${ride.seatsRequested} Seat(s)`}
+                            {ride.rideType === 'korsa_kamla' ? 'Private Taxi (6 places)' : `${ride.seatsRequested} Place(s)`}
                           </span>
                         </div>
                       </div>
@@ -548,6 +568,17 @@ export const DriverConsole: React.FC<DriverConsoleProps> = ({
                 </p>
               </div>
               <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                {onReloadImaginaryRides && (
+                  <button
+                    type="button"
+                    onClick={onReloadImaginaryRides}
+                    className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-2 border border-slate-700"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>Charger les exemples de courses (Mode Démo)</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => setShowPostTripModal(true)}

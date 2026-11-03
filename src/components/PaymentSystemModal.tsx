@@ -48,7 +48,7 @@ export const PaymentSystemModal: React.FC<PaymentSystemModalProps> = ({
   // 3D Secure OTP step state
   const [isProcessing, setIsProcessing] = useState(false);
   const [showOtpScreen, setShowOtpScreen] = useState(false);
-  const [otpCode, setOtpCode] = useState('841920');
+  const [otpCode, setOtpCode] = useState('');
   const [paymentDoneReceipt, setPaymentDoneReceipt] = useState<string | null>(null);
 
   if (!isOpen) return null;

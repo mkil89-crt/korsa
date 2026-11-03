@@ -6,20 +6,22 @@ import {
   Crown,
   Lock,
   Phone,
-  ShieldCheck,
   CheckCircle2,
   ArrowRight,
-  Sparkles,
-  Building,
-  RotateCw,
   Mail,
-  AlertCircle
+  AlertCircle,
+  RotateCw,
+  Building,
+  ShieldCheck
 } from 'lucide-react';
 import { UserSession } from '../types/index';
 import { MOROCCAN_CITIES } from '../data/moroccanCities';
 
 // Moroccan phone number regex: +212 / 00212 / 0 followed by 5, 6 or 7 and 8 digits
-const MOROCCAN_PHONE_REGEX = /^(?:\+212|00212|0)[5-7]\d{8}$/;
+export const MOROCCAN_PHONE_REGEX = /^(?:\+212|00212|0)[5-7]\d{8}$/;
+
+// Standard Email format regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -39,23 +41,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialRoleTab = 'passenger'
 }) => {
   const [roleTab, setRoleTab] = useState<'passenger' | 'driver' | 'founder'>(initialRoleTab);
-  
-  // Passenger Form State
+
+  // 1. Passenger Form State (Direct access - No confirmation code)
   const [passengerName, setPassengerName] = useState('');
   const [passengerPhone, setPassengerPhone] = useState('');
+  const [passengerEmail, setPassengerEmail] = useState('');
   const [passengerCity, setPassengerCity] = useState('Casablanca');
-  const [otpStep, setOtpStep] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [otpSuccessMessage, setOtpSuccessMessage] = useState<string | null>(null);
-  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-  const [attemptsCount, setAttemptsCount] = useState(0);
+  const [passengerError, setPassengerError] = useState<string | null>(null);
+  const [passengerLoading, setPassengerLoading] = useState(false);
 
-  // Driver Form State
+  // 2. Driver Form State (Direct access - Pending status, Mandatory lagrima/car/plate)
   const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
+  const [driverEmail, setDriverEmail] = useState('');
   const [driverCity, setDriverCity] = useState('Casablanca');
   const [driverLagrima, setDriverLagrima] = useState('');
   const [driverCarModel, setDriverCarModel] = useState('');
@@ -64,132 +62,109 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [driverSubmitting, setDriverSubmitting] = useState(false);
   const [driverSuccessNotice, setDriverSuccessNotice] = useState<string | null>(null);
 
-  // Founder Form State (Email + Password verified server-side)
+  // 3. Founder Form State (Verified server-side via email + password)
   const [founderEmail, setFounderEmail] = useState('');
   const [founderPasswordInput, setFounderPasswordInput] = useState('');
   const [founderError, setFounderError] = useState<string | null>(null);
   const [founderLoading, setFounderLoading] = useState(false);
 
-  // Resend countdown timer
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setInterval(() => {
-        setCountdown((c) => c - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [countdown]);
-
-  // Sync role tab when prop changes
+  // Sync role tab when prop changes or modal opens
   useEffect(() => {
     setRoleTab(initialRoleTab);
-    setOtpStep(false);
-    setOtpError(null);
-    setOtpCode('');
+    setPassengerError(null);
+    setDriverError(null);
+    setFounderError(null);
+    setDriverSuccessNotice(null);
   }, [initialRoleTab, isOpen]);
 
   if (!isOpen) return null;
 
-  // 1. Request OTP via Server API
-  const handleRequestOtp = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setOtpError(null);
-    setOtpSuccessMessage(null);
-
-    const trimmedPhone = passengerPhone.trim();
-    if (!trimmedPhone) {
-      setOtpError('Le numéro de téléphone est obligatoire.');
-      return;
-    }
-
-    if (!MOROCCAN_PHONE_REGEX.test(trimmedPhone)) {
-      setOtpError('Numéro de téléphone marocain invalide. Formats acceptés : 06XXXXXXXX, 07XXXXXXXX ou +2126XXXXXXXX.');
-      return;
-    }
-
-    if (attemptsCount >= 5) {
-      setOtpError('Nombre maximal de tentatives atteint (5 essais). Veuillez patienter 5 minutes.');
-      return;
-    }
-
-    setIsRequestingOtp(true);
-    try {
-      const response = await fetch('/api/auth/request-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: trimmedPhone })
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setOtpError(data.error || "Impossible d'envoyer le code par SMS.");
-        setIsRequestingOtp(false);
-        return;
-      }
-
-      setOtpStep(true);
-      setOtpCode(''); // Clean empty input, strictly no pre-fill!
-      setOtpSuccessMessage('Un code de vérification à 6 chiffres a été envoyé par SMS sur votre mobile.');
-      setCountdown(data.cooldownSeconds || 60);
-    } catch (err) {
-      setOtpError('Erreur de connexion au serveur d’authentification.');
-    } finally {
-      setIsRequestingOtp(false);
-    }
-  };
-
-  // 2. Verify OTP via Server API
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  // --- Passenger Submission (Direct registration/login without confirmation code) ---
+  const handlePassengerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setOtpError(null);
+    setPassengerError(null);
 
-    const trimmedCode = otpCode.trim();
-    if (!trimmedCode || trimmedCode.length !== 6) {
-      setOtpError('Veuillez saisir le code à 6 chiffres reçu par SMS.');
+    const name = passengerName.trim();
+    const phone = passengerPhone.trim();
+    const email = passengerEmail.trim().toLowerCase();
+
+    if (!name) {
+      setPassengerError('Veuillez renseigner votre nom et prénom.');
       return;
     }
 
-    setIsVerifyingOtp(true);
+    if (!phone) {
+      setPassengerError('Le numéro de téléphone est obligatoire.');
+      return;
+    }
+
+    if (!MOROCCAN_PHONE_REGEX.test(phone)) {
+      setPassengerError('Numéro marocain invalide (formats acceptés : 06XXXXXXXX, 07XXXXXXXX ou +2126XXXXXXXX).');
+      return;
+    }
+
+    if (!email) {
+      setPassengerError('Votre adresse Gmail / Email est obligatoire.');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(email)) {
+      setPassengerError('Veuillez saisir une adresse Gmail ou email valide (ex : exemple@gmail.com).');
+      return;
+    }
+
+    setPassengerLoading(true);
     try {
-      const response = await fetch('/api/auth/verify-otp', {
+      const response = await fetch('/api/passengers/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: passengerPhone.trim(),
-          code: trimmedCode
+          name,
+          phone,
+          email,
+          city: passengerCity
         })
       });
+
       const data = await response.json();
 
       if (!response.ok) {
-        setAttemptsCount((prev) => prev + 1);
-        setOtpError(data.error || 'Code de confirmation incorrect.');
-        setIsVerifyingOtp(false);
+        setPassengerError(data.error || 'Erreur lors de la connexion du passager.');
+        setPassengerLoading(false);
         return;
       }
 
       const session: UserSession = {
         role: 'passenger',
-        id: `usr-client-${Date.now()}`,
-        name: passengerName.trim() || 'Passager Korsa',
-        phone: passengerPhone.trim(),
+        id: data.user?.id || `usr-client-${Date.now()}`,
+        name,
+        phone,
+        email,
         city: passengerCity,
         isVerified: true
       };
 
       onLoginSuccess(session);
-      setOtpStep(false);
-      setOtpCode('');
-      setAttemptsCount(0);
       onClose();
-    } catch (err) {
-      setOtpError('Erreur de communication lors de la vérification.');
+    } catch {
+      // Fallback local session if server unreachable
+      const session: UserSession = {
+        role: 'passenger',
+        id: `usr-client-${Date.now()}`,
+        name,
+        phone,
+        email,
+        city: passengerCity,
+        isVerified: true
+      };
+      onLoginSuccess(session);
+      onClose();
     } finally {
-      setIsVerifyingOtp(false);
+      setPassengerLoading(false);
     }
   };
 
-  // 3. Driver Registration (Strictly 'pending', All fields mandatory)
+  // --- Driver Submission (Direct registration/login without confirmation code) ---
   const handleDriverSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setDriverError(null);
@@ -197,6 +172,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     const name = driverName.trim();
     const phone = driverPhone.trim();
+    const email = driverEmail.trim().toLowerCase();
     const lagrima = driverLagrima.trim();
     const carModel = driverCarModel.trim();
     const plate = driverPlate.trim();
@@ -208,6 +184,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     if (!phone || !MOROCCAN_PHONE_REGEX.test(phone)) {
       setDriverError('Numéro de téléphone marocain invalide (ex: 06XXXXXXXX ou +2126XXXXXXXX).');
+      return;
+    }
+
+    if (!email || !EMAIL_REGEX.test(email)) {
+      setDriverError('Veuillez renseigner une adresse Gmail ou Email valide pour le contact.');
       return;
     }
 
@@ -234,6 +215,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         body: JSON.stringify({
           name,
           phone,
+          email,
           city: driverCity,
           lagrimaNumber: lagrima,
           carModel,
@@ -243,41 +225,52 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const data = await response.json();
 
       if (!response.ok) {
-        setDriverError(data.error || 'Erreur lors de l’inscription du chauffeur.');
+        setDriverError(data.error || 'Erreur lors de l’enregistrement du chauffeur.');
         setDriverSubmitting(false);
         return;
       }
 
-      // Session starts with 'pending' status! No automatic 'approved'!
+      // Initial status is ALWAYS 'pending' unless already approved by founder
+      const initialStatus = data.driver?.status || 'pending';
+
       const session: UserSession = {
         role: 'driver',
         id: data.driver?.id || `usr-driver-${Date.now()}`,
         name,
         phone,
+        email,
         city: driverCity,
-        isVerified: false,
+        isVerified: initialStatus === 'approved',
         driverDetails: {
           carModel,
           carYear: 2023,
           lagrimaNumber: lagrima,
           plateNumber: plate,
           taxiCity: driverCity,
-          status: 'pending' // Initial status is ALWAYS pending!
+          status: initialStatus
         }
       };
 
-      setDriverSuccessNotice('Dossier soumis avec succès ! Votre compte est en attente d’approbation par l’administration Korsa.');
-      setTimeout(() => {
+      if (initialStatus === 'pending') {
+        setDriverSuccessNotice(
+          'Dossier enregistré sans attente ! Votre compte est actif en statut « En attente d’approbation » par le fondateur Korsa.'
+        );
+        setTimeout(() => {
+          onLoginSuccess(session);
+          onClose();
+        }, 1200);
+      } else {
         onLoginSuccess(session);
         onClose();
-      }, 1500);
-    } catch (err) {
+      }
+    } catch {
       // Fallback local pending session if server unreachable
       const session: UserSession = {
         role: 'driver',
         id: `usr-driver-${Date.now()}`,
         name,
         phone,
+        email,
         city: driverCity,
         isVerified: false,
         driverDetails: {
@@ -296,7 +289,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // 4. Founder Login (Server-Side Verified Email + Password)
+  // --- Founder Login (Server-Side Verified Email + Password) ---
   const handleFounderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFounderError(null);
@@ -319,34 +312,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const data = await response.json();
 
       if (!response.ok) {
-        setFounderError(data.error || 'Identifiants administrateur incorrects.');
+        setFounderError(data.error || 'Identifiants administrateur invalides.');
         setFounderLoading(false);
         return;
       }
 
-      const session: UserSession = {
-        role: 'founder',
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        phone: data.user.phone || '+212 7 08 13 24 61',
-        isVerified: true
-      };
-
-      onLoginSuccess(session);
-      setFounderEmail('');
-      setFounderPasswordInput('');
+      onLoginSuccess(data.user);
       onClose();
-    } catch (err) {
-      setFounderError('Erreur de connexion au serveur d’authentification.');
+    } catch {
+      setFounderError('Erreur de connexion au serveur d’authentification administrateur.');
     } finally {
       setFounderLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Header */}
         <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -359,7 +341,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 Connexion Korsa · تسجيل الدخول
               </h2>
               <p className="text-[11px] text-slate-500">
-                Espace Passagers, Chauffeurs et Administration
+                Accès direct passagers, chauffeurs et administration
               </p>
             </div>
           </div>
@@ -396,7 +378,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Role Selector Tabs */}
         <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-800/70 p-1.5 gap-1 text-xs font-bold">
           <button
-            onClick={() => { setRoleTab('passenger'); setOtpStep(false); }}
+            onClick={() => setRoleTab('passenger')}
             className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               roleTab === 'passenger'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
@@ -408,7 +390,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
 
           <button
-            onClick={() => { setRoleTab('driver'); }}
+            onClick={() => setRoleTab('driver')}
             className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               roleTab === 'driver'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
@@ -420,7 +402,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
 
           <button
-            onClick={() => { setRoleTab('founder'); }}
+            onClick={() => setRoleTab('founder')}
             className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               roleTab === 'founder'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
@@ -435,190 +417,135 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-5">
 
-          {/* TAB 1: PASSAGER (Genuine SMS OTP flow) */}
+          {/* TAB 1: PASSAGER (Direct access with phone, name, email/gmail - No confirmation code) */}
           {roleTab === 'passenger' && (
-            <div className="space-y-4">
-              <div className="text-xs text-slate-600 dark:text-slate-300">
-                Authentification sécurisée par SMS. Entrez votre numéro marocain pour recevoir un code à 6 chiffres.
+            <form onSubmit={handlePassengerSubmit} className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-xs text-emerald-900 dark:text-emerald-300">
+                <span className="font-bold flex items-center gap-1.5 mb-1">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  Accès direct sans code de confirmation
+                </span>
+                Renseignez votre nom, votre numéro marocain et votre adresse Gmail/Email pour réserver un Grand Taxi immédiatement.
               </div>
 
-              {!otpStep ? (
-                <form onSubmit={handleRequestOtp} className="space-y-4">
-                  {otpError && (
-                    <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 text-xs font-semibold text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>{otpError}</span>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Votre Nom & Prénom
-                    </label>
-                    <input
-                      type="text"
-                      value={passengerName}
-                      onChange={(e) => setPassengerName(e.target.value)}
-                      placeholder="Nom complet"
-                      className="w-full mt-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Numéro de Téléphone Marocain (+212)
-                      </label>
-                      <span className="text-[10px] text-slate-400 font-mono">06/07XXXXXXXX</span>
-                    </div>
-                    <div className="relative mt-1">
-                      <input
-                        type="tel"
-                        value={passengerPhone}
-                        onChange={(e) => {
-                          setPassengerPhone(e.target.value);
-                          setOtpError(null);
-                        }}
-                        placeholder="Ex: 06 12 34 56 78"
-                        className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Ville Principale
-                    </label>
-                    <select
-                      value={passengerCity}
-                      onChange={(e) => setPassengerCity(e.target.value)}
-                      className="w-full mt-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
-                    >
-                      {MOROCCAN_CITIES.map((c) => (
-                        <option key={c.id} value={c.name}>{c.name} ({c.nameArabic})</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isRequestingOtp}
-                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer shadow-emerald-500/20"
-                  >
-                    {isRequestingOtp ? (
-                      <>
-                        <RotateCw className="w-4 h-4 animate-spin" />
-                        <span>Envoi du code par SMS...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Phone className="w-4 h-4" />
-                        <span>Recevoir le Code SMS (OTP)</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  {otpSuccessMessage && (
-                    <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>{otpSuccessMessage}</span>
-                    </div>
-                  )}
-
-                  {otpError && (
-                    <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 text-xs font-semibold text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>{otpError}</span>
-                    </div>
-                  )}
-
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Code SMS à 6 chiffres
-                      </label>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        Tentative : {attemptsCount + 1}/5
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => {
-                        setOtpCode(e.target.value.replace(/\D/g, ''));
-                        setOtpError(null);
-                      }}
-                      placeholder="• • • • • •"
-                      className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-emerald-500 rounded-xl font-mono text-center text-2xl font-bold tracking-[0.4em] text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-                      autoFocus
-                      required
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOtpStep(false);
-                        setOtpError(null);
-                        setOtpCode('');
-                      }}
-                      className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-semibold underline cursor-pointer"
-                    >
-                      Modifier mon numéro
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={countdown > 0 || attemptsCount >= 5 || isRequestingOtp}
-                      onClick={() => handleRequestOtp()}
-                      className={`font-bold transition-colors cursor-pointer ${
-                        countdown > 0 || attemptsCount >= 5
-                          ? 'text-slate-400 cursor-not-allowed'
-                          : 'text-emerald-600 hover:text-emerald-700'
-                      }`}
-                    >
-                      {countdown > 0
-                        ? `Renvoyer le code (${countdown}s)`
-                        : attemptsCount >= 5
-                        ? 'Limite d’essais atteinte'
-                        : 'Renvoyer le code SMS'}
-                    </button>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isVerifyingOtp || otpCode.length !== 6}
-                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-colors flex items-center justify-center gap-2"
-                  >
-                    {isVerifyingOtp ? (
-                      <>
-                        <RotateCw className="w-4 h-4 animate-spin" />
-                        <span>Vérification du code...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Valider & Se Connecter</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
+              {passengerError && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 text-xs font-semibold text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{passengerError}</span>
+                </div>
               )}
-            </div>
+
+              {/* Nom & Prénom */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Nom & Prénom du Passager *
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    type="text"
+                    value={passengerName}
+                    onChange={(e) => {
+                      setPassengerName(e.target.value);
+                      setPassengerError(null);
+                    }}
+                    placeholder="Ex: Karim Bennani"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                    required
+                  />
+                  <User className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+                </div>
+              </div>
+
+              {/* Téléphone Marocain */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Numéro de Téléphone Marocain (+212) *
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-mono">06 / 07XXXXXXXX</span>
+                </div>
+                <div className="relative mt-1">
+                  <input
+                    type="tel"
+                    value={passengerPhone}
+                    onChange={(e) => {
+                      setPassengerPhone(e.target.value);
+                      setPassengerError(null);
+                    }}
+                    placeholder="Ex: 06 12 34 56 78"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
+                    required
+                  />
+                  <Phone className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+                </div>
+              </div>
+
+              {/* Contact Email / Gmail */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Adresse Gmail / Email de contact *
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    type="email"
+                    value={passengerEmail}
+                    onChange={(e) => {
+                      setPassengerEmail(e.target.value);
+                      setPassengerError(null);
+                    }}
+                    placeholder="Ex: karim.bennani@gmail.com"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                    required
+                  />
+                  <Mail className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+                </div>
+              </div>
+
+              {/* Ville Principale */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Ville de Départ Principale
+                </label>
+                <div className="relative mt-1">
+                  <select
+                    value={passengerCity}
+                    onChange={(e) => setPassengerCity(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                  >
+                    {MOROCCAN_CITIES.map((c) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name} ({c.nameArabic})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={passengerLoading}
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer shadow-emerald-500/20"
+              >
+                {passengerLoading ? (
+                  <>
+                    <RotateCw className="w-4 h-4 animate-spin" />
+                    <span>Accès en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Accéder aux Trajets Korsa (Sans confirmation)</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
           )}
 
-          {/* TAB 2: CHAUFFEUR TAXI (Mandatory fields & pending status) */}
+          {/* TAB 2: CHAUFFEUR TAXI (Mandatory fields & pending status - No confirmation code) */}
           {roleTab === 'driver' && (
             <form onSubmit={handleDriverSubmit} className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300">
-                ⚠️ <strong>Agrément obligatoire</strong> : Toute nouvelle inscription est soumise à la vérification de l'administration. Statut initial : <em>En attente d'approbation (Pending)</em>.
+                ⚠️ <strong>Agrément obligatoire</strong> : Renseignez vos coordonnées, contact Gmail et informations taxi. Statut initial : <em>En attente d'approbation (Pending)</em> par le fondateur.
               </div>
 
               {driverError && (
@@ -635,6 +562,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
+              {/* Nom & Prénom */}
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   Nom & Prénom du Chauffeur *
@@ -642,13 +570,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <input
                   type="text"
                   value={driverName}
-                  onChange={(e) => setDriverName(e.target.value)}
+                  onChange={(e) => {
+                    setDriverName(e.target.value);
+                    setDriverError(null);
+                  }}
                   placeholder="Nom complet"
                   className="w-full mt-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
                   required
                 />
               </div>
 
+              {/* Téléphone & Ville */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -657,7 +589,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     type="tel"
                     value={driverPhone}
-                    onChange={(e) => setDriverPhone(e.target.value)}
+                    onChange={(e) => {
+                      setDriverPhone(e.target.value);
+                      setDriverError(null);
+                    }}
                     placeholder="06XXXXXXXX"
                     className="w-full mt-1 px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
                     required
@@ -679,6 +614,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
+              {/* Email / Gmail Chauffeur */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Adresse Gmail / Email du Chauffeur *
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    type="email"
+                    value={driverEmail}
+                    onChange={(e) => {
+                      setDriverEmail(e.target.value);
+                      setDriverError(null);
+                    }}
+                    placeholder="chauffeur.korsa@gmail.com"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                    required
+                  />
+                  <Mail className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+                </div>
+              </div>
+
+              {/* Agrément & Modèle */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -687,7 +644,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     type="text"
                     value={driverLagrima}
-                    onChange={(e) => setDriverLagrima(e.target.value)}
+                    onChange={(e) => {
+                      setDriverLagrima(e.target.value);
+                      setDriverError(null);
+                    }}
                     placeholder="Ex: Lagrima #4912"
                     className="w-full mt-1 px-3 py-2 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
                     required
@@ -700,7 +660,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     type="text"
                     value={driverCarModel}
-                    onChange={(e) => setDriverCarModel(e.target.value)}
+                    onChange={(e) => {
+                      setDriverCarModel(e.target.value);
+                      setDriverError(null);
+                    }}
                     placeholder="Ex: Dacia Lodgy, Mercedes E220"
                     className="w-full mt-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
                     required
@@ -708,6 +671,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
+              {/* Matricule */}
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   Matricule Véhicule *
@@ -715,7 +679,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <input
                   type="text"
                   value={driverPlate}
-                  onChange={(e) => setDriverPlate(e.target.value)}
+                  onChange={(e) => {
+                    setDriverPlate(e.target.value);
+                    setDriverError(null);
+                  }}
                   placeholder="Ex: 61492 - A - 6"
                   className="w-full mt-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono"
                   required
@@ -730,11 +697,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {driverSubmitting ? (
                   <>
                     <RotateCw className="w-4 h-4 animate-spin" />
-                    <span>Soumission de la demande...</span>
+                    <span>Enregistrement en cours...</span>
                   </>
                 ) : (
                   <>
-                    <span>Soumettre mon dossier Chauffeur (En attente)</span>
+                    <span>Valider mon Dossier Chauffeur (Sans confirmation)</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
